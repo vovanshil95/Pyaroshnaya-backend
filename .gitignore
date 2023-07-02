@@ -1,0 +1,4 @@
+.idea/
+Dockerfile
+__pycache__/
+.env
