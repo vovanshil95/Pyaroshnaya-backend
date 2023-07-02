@@ -6,7 +6,7 @@ import pytest_asyncio as pytest
 from fastapi.testclient import TestClient
 from httpx import AsyncClient
 
-sys.path.append(sys.path[0].split('Pyaroshnaya-backend')[0] + 'Pyaroshnaya-backend/src')
+sys.path.append(sys.path[0].replace('tests', 'src'))
 
 from database import get_db, get_async_session
 from config import TEST_DB_HOST, TEST_DB_PORT, TEST_DB_NAME, TEST_DB_USER, TEST_DB_PASS
