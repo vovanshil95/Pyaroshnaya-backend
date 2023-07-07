@@ -34,7 +34,7 @@ jobs:
       run: git fetch origin ${{ github.event.pull_request.head.ref }}
       
     - name: local merge head branch
-      run: git merge ${{ github.event.pull_request.head.ref }}
+      run: git merge origin/${{ github.event.pull_request.head.ref }}
     
     - name: make and load dotenv file
       run: echo "${{ secrets.DOT_ENV }}" > .env
