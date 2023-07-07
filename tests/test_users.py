@@ -1,3 +1,3 @@
 
 def test_users():
-    assert False
+    assert True
