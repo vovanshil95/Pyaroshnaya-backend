@@ -1,13 +1,37 @@
 name: CI-CD
 
-on: [push]
+on:
+  pull_request:
+    branches:
+      - vovanshil95-patch-1
 
 jobs:
+  merge-conflict-check:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v2
+      with:
+        ref: ${{ github.event.pull_request.head.ref }}
+
+    - name: Fetch main branch
+      run: git fetch origin main
+
+    - name: Check for conflicts
+      run: git diff --check
+  
   test:  
     runs-on: ubuntu-latest
+    needs: merge-conflict-check
     steps:
     - name: clone repo
       uses: actions/checkout@v1
+      with:
+        ref: ${{ github.event.pull_request.base.ref }}
+        
+    - name: local merge head branch
+      run: git merge ${{ github.event.pull_request.head.ref }}
     
     - name: make and load dotenv file
       run: echo "${{ secrets.DOT_ENV }}" > .env
@@ -22,16 +46,28 @@ jobs:
       with:
         python-version: '3.11'
     
-    
     - name: install python requirements
       run: pip install -r requirements/dev.txt
 
     - name: run tests
       run: pytest tests/
+  
+  merge:
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v2
+
+    - name: Merge pull request
+      uses: pullreminders/merge-action@v2
+      with:
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+          
 
   deploy:  
     runs-on: ubuntu-latest
-    needs: test
+    needs: merge
     steps:
       - name: Connect to server and pull
         run: |
