@@ -7,3 +7,6 @@ def hello():
 
 def hi():
     assert True
+
+def iamdatascientist():
+    assert True
