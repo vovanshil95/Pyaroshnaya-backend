@@ -28,6 +28,7 @@ jobs:
     - name: clone repo
       uses: actions/checkout@v1
       with:
+        github_token: ${{ secrets.GITHUB_TOKEN }}
         ref: ${{ github.event.pull_request.base.ref }}
         
     - name: local merge head branch
