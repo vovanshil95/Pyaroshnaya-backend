@@ -70,7 +70,7 @@ jobs:
         ref: ${{ github.event.pull_request.base.ref }}
 
     - name: Merge pull request
-      uses: github/merge-pull-request-action@v1
+      uses: "github/merge-pull-request-action@v1"
 
   deploy:  
     runs-on: ubuntu-latest
