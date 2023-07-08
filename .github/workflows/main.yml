@@ -68,13 +68,14 @@ jobs:
     steps:
     - name: Checkout repository
       uses: actions/checkout@v2
+      with:
+        ref: ${{ github.event.pull_request.base.ref }}
 
     - name: Merge pull request
       uses: pullreminders/merge-action@v2
       with:
         pull_number: ${{ github.event.pull_request.number }}
         github_token: ${{ secrets.GITHUB_TOKEN }}
-          
 
   deploy:  
     runs-on: ubuntu-latest
