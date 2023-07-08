@@ -5,5 +5,5 @@ def test_users():
 def hello():
     assert True
 
-def hello_iamvoa_ava_():
+def hello_ia_mvoa_ava_():
     assert True
