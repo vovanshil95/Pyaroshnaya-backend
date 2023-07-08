@@ -1,0 +1,16 @@
+name: deploy
+
+on:
+  pull_request:
+    types:
+      - closed
+
+jobs:
+  deploy_to_server:  
+    runs-on: ubuntu-latest
+    steps:
+      - name: Connect to server and pull
+        run: |
+          sshpass -p ${{ secrets.SERVER_PASS }} ssh -o StrictHostKeyChecking=no ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_IP }} -p ${{ secrets.SERVER_PORT }} << EOF
+          cd Pyaroshnaya-backend
+          git pull
