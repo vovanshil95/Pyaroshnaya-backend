@@ -35,6 +35,8 @@ jobs:
       
     - name: local merge head branch
       run: git merge origin/${{ github.event.pull_request.head.ref }}
+      env:
+        GITHUB_TOKEN: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
     
     - name: make and load dotenv file
       run: echo "${{ secrets.DOT_ENV }}" > .env
