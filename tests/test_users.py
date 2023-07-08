@@ -5,6 +5,3 @@ def test_users():
 def hello():
     assert True
 
-
-def iamdatascientist():
-    assert True
