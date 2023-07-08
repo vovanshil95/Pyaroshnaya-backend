@@ -30,11 +30,9 @@ jobs:
     steps:
     - name: clone repo
       uses: actions/checkout@v1
-      with:
-        ref: ${{ github.event.pull_request.base.ref }}
     
     - name: fetch head branch
-      run: git fetch origin ${{ github.event.pull_request.head.ref }}
+      run: git fetch origin main
     
     - name: Set Git Config
       run: |
