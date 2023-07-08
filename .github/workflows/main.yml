@@ -1,4 +1,4 @@
-name: CI-CD
+name: test
 
 on:
   pull_request:
@@ -59,30 +59,3 @@ jobs:
 
     - name: run tests
       run: pytest tests/
-  
-  merge:
-    runs-on: ubuntu-latest
-    needs: test
-    steps:
-    - name: Checkout repository
-      uses: actions/checkout@v2
-      with:
-        ref: ${{ github.event.pull_request.base.ref }}
-
-    - name: Merge pull request
-      uses: juliangruber/merge-pull-request-action@v1
-      with:
-        github_token: ${{ secrets.GITHUB_TOKEN }}
-        number: ${{ github.event.pull_request.number }}
-        method: merge
-        repo: ${{ env.GITHUB_REPOSITORY }}
-
-  deploy:  
-    runs-on: ubuntu-latest
-    needs: merge
-    steps:
-      - name: Connect to server and pull
-        run: |
-          sshpass -p ${{ secrets.SERVER_PASS }} ssh -o StrictHostKeyChecking=no ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_IP }} -p ${{ secrets.SERVER_PORT }} << EOF
-          cd Pyaroshnaya-backend
-          git pull
