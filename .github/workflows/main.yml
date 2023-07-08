@@ -35,8 +35,8 @@ jobs:
     
     - name: Set Git Config
       run: |
-        git config user.email "${{ github.event.pull_request.user.email }}"
-        git config user.name "${{ github.event.pull_request.user.login }}"
+        git config --global user.email "${{ github.event.pull_request.user.email }}"
+        git config --global user.name "${{ github.event.pull_request.user.login }}"
 
     - name: local merge head branch
       run: git merge origin/${{ github.event.pull_request.head.ref }}
