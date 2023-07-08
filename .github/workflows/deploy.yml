@@ -10,6 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Connect to server and pull
+        if: github.event.pull_request.merged == true
         run: |
           sshpass -p ${{ secrets.SERVER_PASS }} ssh -o StrictHostKeyChecking=no ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_IP }} -p ${{ secrets.SERVER_PORT }} << EOF
           cd Pyaroshnaya-backend
