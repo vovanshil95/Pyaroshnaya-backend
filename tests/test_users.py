@@ -5,5 +5,5 @@ def test_users():
 def hello():
     assert True
 
-def hello_vova():
+def hello_vova_():
     assert True
