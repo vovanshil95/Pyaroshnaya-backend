@@ -16,7 +16,7 @@ jobs:
         ref: ${{ github.event.pull_request.head.ref }}
 
     - name: Fetch main branch
-      run: git fetch origin main
+      run: git fetch origin ${{ github.event.pull_request.head.ref }}
 
     - name: Check for conflicts
       run: git diff --check
@@ -28,13 +28,15 @@ jobs:
     - name: clone repo
       uses: actions/checkout@v1
       with:
-        github_token: ${{ secrets.GITHUB_TOKEN }}
-        
+        ref: ${{ github.event.pull_request.base.ref }}
+    
     - name: local merge head branch
-      run: git merge ${{ github.event.pull_request.head.ref }}
-      env:
-          GITHUB_TOKEN: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
+      run: git fetch origin ${{ github.event.pull_request.head.ref }}
 
+    - name: local merge head branch
+      run: git merge origin/${{ github.event.pull_request.head.ref }}
+      env:
+        GITHUB_TOKEN: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
     
     - name: make and load dotenv file
       run: echo "${{ secrets.DOT_ENV }}" > .env
