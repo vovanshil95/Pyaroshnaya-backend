@@ -32,7 +32,7 @@ jobs:
     
     - name: local merge head branch
       run: git fetch origin ${{ github.event.pull_request.head.ref }}
-      
+
     - name: local merge head branch
       run: git merge origin/${{ github.event.pull_request.head.ref }}
       env:
@@ -63,8 +63,6 @@ jobs:
     steps:
     - name: Checkout repository
       uses: actions/checkout@v2
-      with:
-        ref: ${{ github.event.pull_request.head.ref }}
 
     - name: Merge pull request
       uses: pullreminders/merge-action@v2
