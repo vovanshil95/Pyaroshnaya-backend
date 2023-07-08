@@ -72,6 +72,7 @@ jobs:
     - name: Merge pull request
       uses: pullreminders/merge-action@v2
       with:
+        pull_number: ${{ github.event.pull_request.number }}
         github_token: ${{ secrets.GITHUB_TOKEN }}
           
 
