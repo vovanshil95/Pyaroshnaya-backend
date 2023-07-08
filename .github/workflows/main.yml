@@ -70,9 +70,9 @@ jobs:
         ref: ${{ github.event.pull_request.base.ref }}
 
     - name: Merge pull request
-      uses: "pascalgn/automerge-action@v0.15.6"
+      uses: juliangruber/merge-pull-request-action@v1
       env:
-        GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
+        github_token: "${{ secrets.GITHUB_TOKEN }}"
 
   deploy:  
     runs-on: ubuntu-latest
