@@ -72,8 +72,10 @@ jobs:
     - name: Merge pull request
       uses: juliangruber/merge-pull-request-action@v1
       with:
+        github_token: ${{ secrets.GITHUB_TOKEN }}
         number: ${{ github.event.pull_request.number }}
-        github_token: "${{ secrets.GITHUB_TOKEN }}"
+        method: merge
+        repo: ${{ env.GITHUB_REPOSITORY }}
 
   deploy:  
     runs-on: ubuntu-latest
