@@ -1,0 +1,62 @@
+name: test
+
+on:
+  pull_request:
+    types:
+    - opened
+    - edited
+    - reopened
+    - synchronize
+
+jobs:
+  merge-conflict-check:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v2
+      with:
+        ref: ${{ github.event.pull_request.head.ref }}
+
+    - name: Fetch main branch
+      run: git fetch origin ${{ github.event.pull_request.head.ref }}
+
+    - name: Check for conflicts
+      run: git diff --check
+  
+  test:  
+    runs-on: ubuntu-latest
+    needs: merge-conflict-check
+    steps:
+    - name: clone repo
+      uses: actions/checkout@v1
+    
+    - name: fetch head branch
+      run: git fetch origin main
+    
+    - name: Set Git Config
+      run: |
+        git config --global user.email "${{ github.event.pull_request.user.email }}"
+        git config --global user.name "${{ github.event.pull_request.user.login }}"
+
+    - name: local merge head branch
+      run: git merge origin/${{ github.event.pull_request.head.ref }}
+    
+    - name: make and load dotenv file
+      run: echo "${{ secrets.DOT_ENV }}" > .env
+      
+    - name: init database
+      run: |
+        source .env
+        docker pull postgres
+        docker run --name test_postgres -e POSTGRES_PASSWORD=$TEST_DB_PASS -e POSTGRES_DB=$TEST_DB_NAME -p $TEST_DB_PORT:5432 -d postgres
+    
+    - uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+    
+    - name: install python requirements
+      run: pip install -r requirements/dev.txt
+
+    - name: run tests
+      run: pytest tests/
