@@ -2,8 +2,11 @@ name: test
 
 on:
   pull_request:
-    branches:
-      - vovanshil95-patch-1
+    types:
+    - opened
+    - edited
+    - reopened
+    - synchronize
 
 jobs:
   merge-conflict-check:
