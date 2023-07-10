@@ -13,7 +13,7 @@ from config import TEST_DB_HOST, TEST_DB_PORT, TEST_DB_NAME, TEST_DB_USER, TEST_
 from auth.models import Base
 from main import app
 
-_, test_engine, _, test_get_async_session =  get_db(TEST_DB_HOST, TEST_DB_PORT, TEST_DB_NAME, TEST_DB_USER, TEST_DB_PASS)
+_, test_engine, async_session_maker, test_get_async_session =  get_db(TEST_DB_HOST, TEST_DB_PORT, TEST_DB_NAME, TEST_DB_USER, TEST_DB_PASS)
 
 Base.metadata.bind = test_engine
 
