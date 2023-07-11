@@ -56,6 +56,14 @@ async def login_resp(request, user_schema_template, ac: AsyncClient):
                          json={'username': user_schema_template.username,
                          'password': user_schema_template.password})
 
+@pytest.fixture()
+async def logout_resp(request, login_resp, ac: AsyncClient):
+    token = login_resp.json()['accessToken']
+    if request.param['invalid_token']:
+        token += '1'
+    return await ac.post('/auth/logout', headers=None
+            if request.param['without_auth'] else {'Authorization': f'Bearer {token}'})
+
 @pytest.mark.run(order=0)
 async def test_user_register_success(register_resp):
     assert register_resp.status_code == 200
@@ -83,6 +91,21 @@ async def test_user_login_success(login_resp):
 async def test_user_login_fail(login_resp):
     assert login_resp.status_code == 401
     assert login_resp.json()['message'] == 'incorrect username and password'
+
+@pytest.mark.parametrize('logout_resp', {'invalid_token': False, 'without_auth': False}, indirect=True)
+async def test_user_logout_success():
+    assert logout_resp.status_code == 200
+    assert logout_resp.json()['message'] == 'status success, user logged out'
+
+@pytest.mark.parametrize('logout_resp', {'invalid_token': True, 'without_auth': False}, indirect=True)
+async def test_user_logout_invalid_token():
+    assert logout_resp.status_code == 498
+    assert logout_resp.json()['message'] == 'The access token is invalid'
+
+@pytest.mark.parametrize('logout_resp', {'invalid_token': False, 'without_auth': True}, indirect=True)
+async def test_user_logout_without_auth():
+    assert logout_resp.status_code == 401
+    assert logout_resp.json()['message'] == 'User is not authorized'
 
 @pytest.mark.parametrize('register_resp', {'change_phone': True})
 async def test_same_name_user_register(register_resp):
