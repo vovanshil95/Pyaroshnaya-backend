@@ -14,3 +14,11 @@ class AccessTokenPayload(BaseModel):
 class SmsVerification(BaseModel):
     user_id: uuid.UUID
     code: int
+
+class Credentials(BaseModel):
+    username: str
+    password: str
+
+class JwtTokens(BaseModel):
+    refreshToken: bytes
+    accessToken: bytes

@@ -3,15 +3,14 @@ import pytest
 
 import uuid
 import base64
-import hmac
 
-from config import SHA_KEY
 from conftest import async_session_maker
 from users.schemas import NewUser as NewUserSchema
 from users.models import User
 from auth.schemas import AccessTokenPayload
 from auth.schemas import SmsVerification
 from auth.models import Auth
+from auth.utils import encrypt
 
 @pytest.fixture()
 async def user_schema_templates():
@@ -46,7 +45,7 @@ async def add_users_to_db(user_schema_templates):
         session.add_all(map(lambda user_id, auth_id:
                             Auth(id=user_id,
                                  user_id=auth_id,
-                                 pasword=hmac.new(SHA_KEY, user_schema_templates[1].password, 'sha256').digest()),
+                                 pasword=encrypt(user_schema_templates[1].password)),
                             user_ids, auth_ids))
     yield
 
