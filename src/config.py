@@ -18,6 +18,9 @@ TEST_DB_PASS = os.environ.get('TEST_DB_PASS')
 
 SHA_KEY = os.environ.get('SHA_KEY').encode()
 
-JWT_TTL_DAYS = 30
+REFRESH_TTL_DAYS = 30
+ACCESS_TTL_MINUTES = 15
+
+GREEN_SMS_TOKEN = os.environ.get('GREEN_SMS_TOKEN')
 
 ORIGINS = os.environ.get('ORIGINS').split(' ')

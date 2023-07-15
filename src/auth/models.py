@@ -23,7 +23,7 @@ class RefreshToken(Base):
                  id: uuid.UUID=None,
                  user_id: uuid.UUID=None,
                  user_agent: str=None,
-                 till_date: datetime=None,
+                 exp: datetime=None,
                  valid: bool=None,
                  next_token: uuid.UUID=None,
                  last_use: datetime=None,

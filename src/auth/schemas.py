@@ -2,18 +2,11 @@ from pydantic import BaseModel
 
 import uuid
 
-
-class AccessTokenPayload(BaseModel):
-    id: uuid.UUID
-    username: str
-    phone: str
-    role: str
-    balance: float
-    tillDate: int
+from utils import BaseResponse
 
 class SmsVerification(BaseModel):
     user_id: uuid.UUID
-    code: int
+    code: str
 
 class Credentials(BaseModel):
     username: str
@@ -22,3 +15,10 @@ class Credentials(BaseModel):
 class JwtTokens(BaseModel):
     refreshToken: bytes
     accessToken: bytes
+
+class UserSign(BaseModel):
+    ip: str
+    user_agent: str
+
+class UserId(BaseResponse):
+    user_id: uuid.UUID

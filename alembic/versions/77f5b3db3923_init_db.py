@@ -1,8 +1,8 @@
-"""empty message
+"""init db
 
-Revision ID: faa11d5ffc7a
+Revision ID: 77f5b3db3923
 Revises: 
-Create Date: 2023-07-12 23:38:28.569863
+Create Date: 2023-07-15 18:16:39.502577
 
 """
 from alembic import op
@@ -10,7 +10,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision = 'faa11d5ffc7a'
+revision = '77f5b3db3923'
 down_revision = None
 branch_labels = None
 depends_on = None
@@ -24,14 +24,24 @@ def upgrade() -> None:
     )
     op.create_table('unverified_user',
     sa.Column('id', sa.UUID(), nullable=False),
-    sa.Column('name', sa.String(), nullable=False),
+    sa.Column('username', sa.String(), nullable=False),
     sa.Column('phone', sa.String(), nullable=False),
     sa.Column('company', sa.String(), nullable=False),
+    sa.Column('last_sms_code', sa.String(), nullable=False),
+    sa.Column('last_sms_time', sa.TIMESTAMP(), nullable=False),
+    sa.Column('ip', sa.String(), nullable=False),
+    sa.Column('user_agent', sa.String(), nullable=False),
+    sa.Column('password', sa.LargeBinary(), nullable=False),
     sa.PrimaryKeyConstraint('id')
     )
     op.create_table('users',
     sa.Column('id', sa.UUID(), nullable=False),
     sa.Column('name', sa.String(), nullable=False),
+    sa.Column('phone', sa.String(), nullable=False),
+    sa.Column('company', sa.String(), nullable=False),
+    sa.Column('role', sa.String(), nullable=False),
+    sa.Column('balance', sa.Float(), nullable=False),
+    sa.Column('till_date', sa.TIMESTAMP(), nullable=True),
     sa.PrimaryKeyConstraint('id')
     )
     op.create_table('auth',

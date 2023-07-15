@@ -7,7 +7,7 @@ import base64
 from conftest import async_session_maker
 from users.schemas import NewUser as NewUserSchema
 from users.models import User
-from auth.schemas import AccessTokenPayload
+from auth.schemas import JwtTokens
 from auth.schemas import SmsVerification
 from auth.models import Auth
 from auth.utils import encrypt
