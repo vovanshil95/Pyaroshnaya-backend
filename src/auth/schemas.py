@@ -13,8 +13,15 @@ class Credentials(BaseModel):
     password: str
 
 class JwtTokens(BaseModel):
-    refreshToken: bytes
-    accessToken: bytes
+    refreshToken: str
+    accessToken: str
+
+class RefreshTokenPayload(BaseModel):
+    id: uuid.UUID
+
+class AccessTokenHeader(BaseModel):
+    alg: str='HS256'
+    typ: str='JWT'
 
 class UserSign(BaseModel):
     ip: str

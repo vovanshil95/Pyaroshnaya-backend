@@ -6,16 +6,16 @@ import string
 import re
 
 from fastapi import APIRouter, Depends, HTTPException, Header, Request
-from sqlalchemy import select, and_
+from sqlalchemy import select, and_, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from config import REFRESH_TTL_DAYS, ACCESS_TTL_MINUTES
 from database import get_async_session, async_session_maker
-from auth.schemas import Credentials, JwtTokens, UserId, UserSign, SmsVerification
-from auth.models import Auth, RefreshToken, TokenGroup
+from auth.schemas import Credentials, JwtTokens, UserId, UserSign, SmsVerification, AccessTokenHeader, RefreshTokenPayload
+from auth.models import Auth, RefreshToken
 from users.models import User, UnverifiedUser
 from users.schemas import NewUser
-from auth.utils import encrypt, base64_encode, SmsSender, AccessTokenPayload, access_token_header, base64_decode
+from auth.utils import encrypt, base64_encode, SmsSender, AccessTokenPayload, base64_decode
 from utils import BaseResponse, msc_now
 
 router = APIRouter(prefix='/auth',
@@ -26,24 +26,23 @@ async def check_user_agent(user_agent: str = Header(...)):
         raise HTTPException(status_code=400, detail='error: User-Agent required')
     return user_agent
 
-async def get_user_token(request: Request) -> AccessTokenPayload:
-    if (auth_header := request.headers.get('Authorization')) is None:
-        raise HTTPException(status_code=401, detail='User is not authorized')
+async def get_user_token(Authorization: str = Header(...)) -> AccessTokenPayload:
+    if not Authorization:
+        raise HTTPException(status_code=401, detail='user is not authorized')
+    base64_chars = r'[a-zA-Z0-9=_+-/]'
+    pattern = re.compile(rf'^Bearer {base64_chars}+\.{base64_chars}+\.{base64_chars}+$')
 
-    base64_chars = r'[a-zA-Z0-9+/]'
-    pattern = re.compile(rf'^Barier {base64_chars}+\.{base64_chars}+\.{base64_chars}+$')
-
-    if pattern.match(auth_header) in None:
-        raise HTTPException(status_code=401, detail='User is not authorized')
-    header, payload, sign = auth_header.split('.')
+    if pattern.match(Authorization) is None:
+        raise HTTPException(status_code=401, detail='user is not authorized')
+    header, payload, sign = Authorization.split('Bearer ')[1].split('.')
 
     if not encrypt(header + '.' + payload) == base64_decode(sign):
-        raise HTTPException(status_code=498, detail='The access token is invalid')
+        raise HTTPException(status_code=498, detail='the access token is invalid')
 
     user_token = AccessTokenPayload.parse_raw(base64_decode(payload))
 
-    if int(datetime.utcnow()) > user_token.exp:
-        raise HTTPException(status_code=498, detail='The access token is invalid')
+    if int(datetime.utcnow().timestamp()) > user_token.exp:
+        raise HTTPException(status_code=498, detail='the access token is invalid')
 
     return user_token
 
@@ -76,15 +75,11 @@ async def check_new_user(request: Request,
 async def get_new_tokens(user: User,
                          user_agent: str,
                          session: AsyncSession) -> JwtTokens:
-    group_id = uuid.uuid4()
-    session.add(TokenGroup(id=group_id))
-    await session.flush()
 
     session.add(RefreshToken(user_id=user.id,
                              user_agent=user_agent,
                              exp=datetime.utcnow() + timedelta(days=REFRESH_TTL_DAYS),
                              valid=True,
-                             token_group_id=group_id,
                              last_use=msc_now()))
     payload = AccessTokenPayload(id=user.id,
                                  username=user.name,
@@ -92,12 +87,12 @@ async def get_new_tokens(user: User,
                                  role=user.role,
                                  balance=user.balance,
                                  tillDate=user.till_date,
-                                 exp=int(datetime.utcnow() + timedelta(minutes=ACCESS_TTL_MINUTES)))
+                                 exp=int((datetime.utcnow() + timedelta(minutes=ACCESS_TTL_MINUTES)).timestamp()))
 
-    access_token = base64_encode(access_token_header) + b'.' + base64_encode(payload)
+    access_token = base64_encode(AccessTokenHeader().json()) + '.' + base64_encode(payload.json())
     signature = base64_encode(encrypt(access_token))
-    signed_access_token = access_token + b'.' + signature
-    refresh_token = base64_encode({id: user.id})
+    signed_access_token = access_token + '.' + signature
+    refresh_token = base64_encode(RefreshTokenPayload(id=user.id).json())
 
     tokens = JwtTokens(refreshToken=refresh_token,
                        accessToken=signed_access_token)
@@ -157,10 +152,10 @@ async def register(new_user: NewUser,
 
     return UserId(message='registration status success, SMS-code was sent', user_id=new_user_id)
 
-@router.post('auth/smsCode', responses={200: {'model': JwtTokens},
-                                        400: {'model': BaseResponse, 'description': 'error: User-Agent required'},
-                                        421: {'model': BaseResponse, 'description': 'code is failed'},
-                                        404: {'model': BaseResponse, 'description': 'user not found'}})
+@router.post('/smsCode', responses={200: {'model': JwtTokens},
+                                    400: {'model': BaseResponse, 'description': 'error: User-Agent required'},
+                                    421: {'model': BaseResponse, 'description': 'code is failed'},
+                                    404: {'model': BaseResponse, 'description': 'user not found'}})
 async def code_verification(verification: SmsVerification,
                             user_agent: str=Depends(check_user_agent),
                             session: AsyncSession=Depends(get_async_session)) -> JwtTokens:
@@ -180,9 +175,8 @@ async def code_verification(verification: SmsVerification,
                 till_date=None)
 
     session.add(user)
-
-    tokens = await get_new_tokens(user=user, user_agent=user_agent, session=session)
     await session.flush()
+    tokens = await get_new_tokens(user=user, user_agent=user_agent, session=session)
     await session.delete(new_user)
 
     session.add(Auth(id=uuid.uuid4(),
@@ -192,7 +186,25 @@ async def code_verification(verification: SmsVerification,
     return tokens
 
 
-@router.post('/logout')
-def logout(user_token: User=Depends(get_user_token),
-           session: AsyncSession=Depends(get_async_session)):
-    pass
+@router.post('/logout', responses={200: {'model': BaseResponse},
+                                   300: {'model': BaseResponse, 'description': 'user is blocked'},
+                                   400: {'model': BaseResponse, 'description': 'error: User-Agent required'},
+                                   401: {'model': BaseResponse, 'description': 'user is not authorized'},
+                                   498: {'model': BaseResponse, 'description': 'the access token is invalid'}})
+async def logout(user_token: AccessTokenPayload=Depends(get_user_token),
+                 user_agent: str=Depends(check_user_agent),
+                 session: AsyncSession=Depends(get_async_session)) -> BaseResponse:
+
+    refresh_tokens = (await session.execute(select(RefreshToken)
+                           .where(and_(RefreshToken.user_agent == user_agent,
+                                       RefreshToken.user_id == user_token.id)))).all()
+
+    if refresh_tokens == []:
+        await session.execute(delete(RefreshToken).filter(RefreshToken.id == user_token.id))
+        raise HTTPException(status_code=300, detail='user is blocked')
+
+    await session.execute(delete(RefreshToken)
+                          .where(and_(RefreshToken.user_agent == user_agent,
+                                      RefreshToken.user_id == user_token.id)))
+
+    return BaseResponse(message='status success, user logged out')

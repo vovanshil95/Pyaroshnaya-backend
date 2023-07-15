@@ -29,10 +29,10 @@ class SmsSender:
 def encrypt(string: str | bytes) -> bytes:
     return hmac.new(SHA_KEY, string.encode() if isinstance(string, str) else string, 'sha256').digest()
 
-def base64_encode(content: str | dict) -> bytes:
-    return base64.urlsafe_b64encode((content if isinstance(content, str) else str(content)).encode())
+def base64_encode(content: str | dict | bytes) -> str:
+    if isinstance(content, str):
+        content = content.encode()
+    return base64.urlsafe_b64encode(content).decode()
 
-def base64_decode(content: bytes | str) -> bytes:
+def base64_decode(content: str) -> bytes:
     return base64.urlsafe_b64decode(content)
-
-access_token_header = {'alg': 'HS256', 'typ': 'JWT'}
