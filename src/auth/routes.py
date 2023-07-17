@@ -66,7 +66,7 @@ async def check_new_user(request: Request,
     if same_names.first():
         raise HTTPException(detail='user with same name already exists', status_code=421)
     if same_phones.first():
-        raise HTTPException(detail='user with same name already exists', status_code=422)
+        raise HTTPException(detail='user with same name already exists', status_code=409)
     if recent_requests.first():
         raise HTTPException(detail='too many requests', status_code=429)
 
@@ -98,37 +98,33 @@ async def get_new_tokens(user: User,
                        accessToken=signed_access_token)
     return tokens
 
-@router.post('/login')
+@router.post('/login', responses={200: {'model': JwtTokens},
+                                  401: {'model': BaseResponse, 'description': 'incorrect username and password'},
+                                  409: {'model': BaseResponse, 'description': 're-authentication is not allowed'}})
 async def login(credentials: Credentials,
                 session: AsyncSession=Depends(get_async_session),
                 user_agent: str=Depends(check_user_agent)) -> JwtTokens:
     user = (await session.execute(select(User)
                                   .join(Auth)
                                   .where(and_(User.name == credentials.username,
-                                              Auth.password == encrypt(credentials.password))))).first()
-    if not user.id:
-        raise HTTPException(status_code=400, detail='incorrect username and password')
+                                              Auth.password == encrypt(credentials.password))))).scalars().first()
+    if user is None:
+        raise HTTPException(status_code=401, detail='incorrect username and password')
 
-    if corrupted_token_group := await select(RefreshToken)\
+    if (await session.execute(select(RefreshToken.id)\
             .where(and_(RefreshToken.user_id==user.id,
                         RefreshToken.user_agent == user_agent,
-                        RefreshToken.valid)).token_group_id:
-        corrupted_tokens = await session.execute(select(RefreshToken)
-                                 .where(RefreshToken.token_group_id == corrupted_token_group)).scalars().all()
-        for token in corrupted_tokens:
-            token.valid = False
-        await session.bulk_update_mappings(RefreshToken, corrupted_tokens)
-        await session.commit()
+                        RefreshToken.valid)))).scalars().all():
         raise HTTPException(status_code=409, detail='re-authentication is not allowed')
 
-    jwt_tokens = await get_new_tokens(user, user_agent)
+    jwt_tokens = await get_new_tokens(user, user_agent, session)
 
     return jwt_tokens
 
 @router.post('/registration', responses={200: {'model': UserId},
                                          400: {'model': BaseResponse, 'description': 'error: User-Agent required'},
                                          421: {'model': BaseResponse, 'description': 'user with same name already exists'},
-                                         422: {'model': BaseResponse, 'description': 'user with same phone already exists'},
+                                         409: {'model': BaseResponse, 'description': 'user with same phone already exists'},
                                          429: {'model': BaseResponse, 'description': 'too many requests'}})
 async def register(new_user: NewUser,
                    session: AsyncSession=Depends(get_async_session),
