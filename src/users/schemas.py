@@ -8,6 +8,6 @@ class User(BaseModel):
 
 class NewUser(BaseModel):
     username: str
-    phone: str
+    phone: str='79115901599'
     company: str
     password: str

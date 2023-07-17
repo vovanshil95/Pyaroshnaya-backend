@@ -5,8 +5,8 @@ import uuid
 from utils import BaseResponse
 
 class SmsVerification(BaseModel):
-    user_id: uuid.UUID
-    code: str
+    phone: str='79115901599'
+    code: str='1692'
 
 class Credentials(BaseModel):
     username: str
@@ -29,3 +29,6 @@ class UserSign(BaseModel):
 
 class UserId(BaseResponse):
     user_id: uuid.UUID
+
+class PhoneRequest(BaseModel):
+    phone: str='79115901599'

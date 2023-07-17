@@ -1,8 +1,6 @@
 import asyncio
-import random
 import uuid
 from datetime import datetime, timedelta
-import string
 import re
 
 from fastapi import APIRouter, Depends, HTTPException, Header, Request
@@ -11,11 +9,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from config import REFRESH_TTL_DAYS, ACCESS_TTL_MINUTES
 from database import get_async_session, async_session_maker
-from auth.schemas import Credentials, JwtTokens, UserId, UserSign, SmsVerification, AccessTokenHeader, RefreshTokenPayload
+from auth.schemas import Credentials, JwtTokens, UserId, UserSign, SmsVerification, AccessTokenHeader, RefreshTokenPayload, PhoneRequest
 from auth.models import Auth, RefreshToken
 from users.models import User, UnverifiedUser
 from users.schemas import NewUser
-from auth.utils import encrypt, base64_encode, SmsSender, AccessTokenPayload, base64_decode
+from auth.utils import encrypt, base64_encode, SmsCodeManager, AccessTokenPayload, base64_decode
 from utils import BaseResponse, msc_now
 
 router = APIRouter(prefix='/auth',
@@ -52,23 +50,15 @@ async def check_new_user(request: Request,
                          user_agent: str=Depends(check_user_agent)) -> UserSign:
 
     async with async_session_maker() as session1,\
-            async_session_maker() as session2,\
-            async_session_maker() as session3:
-        same_names, same_phones, recent_requests = await asyncio.gather(
+            async_session_maker() as session2:
+        same_names, same_phones = await asyncio.gather(
             session1.execute(select(User).where(User.name == new_user.username)),
-            session2.execute(select(User).where(User.phone == new_user.phone)),
-            session3.execute(select(UnverifiedUser).where(
-                    and_(UnverifiedUser.user_agent == user_agent,
-                         UnverifiedUser.ip == request.client.host,
-                         (msc_now() - UnverifiedUser.last_sms_time) < timedelta(minutes=1))))
-        )
+            session2.execute(select(User).where(User.phone == new_user.phone)))
 
     if same_names.first():
         raise HTTPException(detail='user with same name already exists', status_code=421)
     if same_phones.first():
         raise HTTPException(detail='user with same name already exists', status_code=409)
-    if recent_requests.first():
-        raise HTTPException(detail='too many requests', status_code=429)
 
     return UserSign(ip=request.client.host, user_agent=user_agent)
 
@@ -129,16 +119,13 @@ async def login(credentials: Credentials,
 async def register(new_user: NewUser,
                    session: AsyncSession=Depends(get_async_session),
                    user_sign: UserSign=Depends(check_new_user),
-                   sender: SmsSender =Depends(SmsSender())) -> UserId:
-
-    sms_code = "".join(random.choices(string.digits, k=4))
-    sender.phone = new_user.phone
-    sender.code = sms_code
+                   sender: SmsCodeManager=Depends(SmsCodeManager(code_type='constant'))) -> BaseResponse:
 
     new_user_id = uuid.uuid4()
+    sender.phone=new_user.phone
     session.add(UnverifiedUser(id=new_user_id,
                                ip=user_sign.ip,
-                               last_sms_code=sms_code,
+                               last_sms_code=sender.code,
                                last_sms_time=msc_now(),
                                user_agent=user_sign.user_agent,
                                username=new_user.username,
@@ -146,7 +133,7 @@ async def register(new_user: NewUser,
                                company=new_user.company,
                                password=encrypt(new_user.password)))
 
-    return UserId(message='registration status success, SMS-code was sent', user_id=new_user_id)
+    return BaseResponse(message='registration status success, SMS-code was sent')
 
 @router.post('/smsCode', responses={200: {'model': JwtTokens},
                                     400: {'model': BaseResponse, 'description': 'error: User-Agent required'},
@@ -156,7 +143,9 @@ async def code_verification(verification: SmsVerification,
                             user_agent: str=Depends(check_user_agent),
                             session: AsyncSession=Depends(get_async_session)) -> JwtTokens:
 
-    new_user = await session.get(UnverifiedUser, verification.user_id)
+    new_user = (await session.execute(select(UnverifiedUser)
+                        .filter(and_(UnverifiedUser.user_agent==user_agent,
+                                     UnverifiedUser.phone==verification.phone)))).scalars().first()
     if not new_user:
         raise HTTPException(status_code=404, detail='user not found')
     if new_user.last_sms_code != verification.code:
@@ -204,3 +193,33 @@ async def logout(user_token: AccessTokenPayload=Depends(get_user_token),
                                       RefreshToken.user_id == user_token.id)))
 
     return BaseResponse(message='status success, user logged out')
+
+@router.post('/passwordRecovery', responses={200: {'model': BaseResponse},
+                                             421: {'model': BaseResponse, 'description': 'The phone number was not found'},
+                                             429: {'model': BaseResponse, 'description': 'Too many requests'}})
+async def get_phone(phone_request: PhoneRequest,
+                    session: AsyncSession=Depends(get_async_session),
+                    sms_sender: SmsCodeManager=Depends(SmsCodeManager(code_type='constant'))):
+    if (user := (await session.execute(select(User).filter(User.phone == phone_request.phone))).scalars().first()) is None:
+        raise HTTPException(status_code=421, detail='The phone number was not found')
+
+    sms_sender.phone = phone_request.phone
+    auth = (await session.execute(select(Auth).filter(Auth.user_id == user.id))).scalars().first()
+    auth.sms_code = sms_sender.code
+
+    return BaseResponse(message='status success: SMS-code was sent')
+
+@router.put('/passwordRecovery', responses={200: {'model': BaseResponse},
+                                            404: {'model': BaseResponse, 'description': 'user not found'},
+                                            421: {'model': BaseResponse, 'description': 'code is failed'}})
+async def code_verification_recovery(verification: SmsVerification,
+                                     session: AsyncSession=Depends(get_async_session)):
+    auth = (await session.execute(select(Auth).join(User).where(User.phone == verification.phone))).scalars().first()
+    if auth is None:
+        raise HTTPException(status_code=404, detail='user not found')
+    if auth.sms_code is None or auth.sms_code != verification.code:
+        raise HTTPException(status_code=421, detail='code is failed')
+    auth.sms_code = None
+    session.add(auth)
+
+    return BaseResponse(message='status success, phone verified')

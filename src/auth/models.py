@@ -10,6 +10,13 @@ class Auth(Base):
     id = Column(UUID, primary_key=True)
     user_id = Column(ForeignKey('users.id', ondelete='cascade'), nullable=False)
     password = Column(LargeBinary, nullable=False)
+    sms_code = Column(String)
+
+
+class SmsSend(Base):
+    __tablename__ = 'sms_send'
+    ip = Column(String, primary_key=True)
+    time_send = Column(TIMESTAMP, nullable=False)
 
 class RefreshToken(Base):
     def __init__(self,

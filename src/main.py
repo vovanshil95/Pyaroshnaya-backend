@@ -17,5 +17,4 @@ app.add_middleware(
 )
 
 app.add_exception_handler(HTTPException, http_exception_handler)
-app.include_router(users_router)
 app.include_router(auth_router)
