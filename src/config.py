@@ -18,11 +18,12 @@ TEST_DB_PASS = os.environ.get('TEST_DB_PASS')
 
 SHA_KEY = os.environ.get('SHA_KEY').encode()
 
-REFRESH_TTL_DAYS = 30
-ACCESS_TTL_MINUTES = 15
-
 GREEN_SMS_TOKEN = os.environ.get('GREEN_SMS_TOKEN')
 TEST_SMS_CODE = os.environ.get('TEST_SMS_CODE')
 
 ORIGINS = os.environ.get('ORIGINS').split(' ')
 
+REFRESH_TTL_DAYS = 30
+ACCESS_TTL_MINUTES = 15
+
+DEFAULT_PHONE = '79123456789'

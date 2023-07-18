@@ -14,7 +14,7 @@ class User(Base):
 class UnverifiedUser(Base):
     __tablename__ = 'unverified_user'
     id = Column(UUID, primary_key=True)
-    username = Column(String, nullable=False)
+    username = Column(String)
     phone = Column(String, nullable=False)
     company = Column(String, nullable=False)
     last_sms_code = Column(String, nullable=False)

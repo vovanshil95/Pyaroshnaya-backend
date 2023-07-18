@@ -2,14 +2,16 @@ from pydantic import BaseModel
 
 import uuid
 
+from config import DEFAULT_PHONE
 from utils import BaseResponse
 
 class SmsVerification(BaseModel):
-    phone: str='79115901599'
+    phone: str=DEFAULT_PHONE
     code: str='1692'
 
 class Credentials(BaseModel):
-    username: str
+    username: str=None
+    phone: str=None
     password: str
 
 class JwtTokens(BaseModel):
@@ -31,4 +33,4 @@ class UserId(BaseResponse):
     user_id: uuid.UUID
 
 class PhoneRequest(BaseModel):
-    phone: str='79115901599'
+    phone: str=DEFAULT_PHONE

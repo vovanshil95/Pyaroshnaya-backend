@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, Header, Request
 from sqlalchemy import select, and_, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from config import REFRESH_TTL_DAYS, ACCESS_TTL_MINUTES
+from config import REFRESH_TTL_DAYS, ACCESS_TTL_MINUTES, DEFAULT_PHONE
 from database import get_async_session, async_session_maker
 from auth.schemas import Credentials, JwtTokens, UserId, UserSign, SmsVerification, AccessTokenHeader, RefreshTokenPayload, PhoneRequest
 from auth.models import Auth, RefreshToken
@@ -94,9 +94,14 @@ async def get_new_tokens(user: User,
 async def login(credentials: Credentials,
                 session: AsyncSession=Depends(get_async_session),
                 user_agent: str=Depends(check_user_agent)) -> JwtTokens:
+    if credentials.username is None and credentials.phone in (DEFAULT_PHONE, None) or \
+            credentials.username is not None and credentials.phone not in (DEFAULT_PHONE, None):
+        raise HTTPException(status_code=422, detail='either phone number or username must be specified')
+
     user = (await session.execute(select(User)
                                   .join(Auth)
-                                  .where(and_(User.name == credentials.username,
+                                  .where(and_(User.name == credentials.username if credentials.username else
+                                                                                User.phone == credentials.phone,
                                               Auth.password == encrypt(credentials.password))))).scalars().first()
     if user is None:
         raise HTTPException(status_code=401, detail='incorrect username and password')
@@ -120,7 +125,8 @@ async def register(new_user: NewUser,
                    session: AsyncSession=Depends(get_async_session),
                    user_sign: UserSign=Depends(check_new_user),
                    sender: SmsCodeManager=Depends(SmsCodeManager(code_type='constant'))) -> BaseResponse:
-
+    if new_user.phone in (DEFAULT_PHONE, None):
+        raise HTTPException(status_code=429, detail='either phone number or username must be specified')
     new_user_id = uuid.uuid4()
     sender.phone=new_user.phone
     session.add(UnverifiedUser(id=new_user_id,

@@ -1,5 +1,7 @@
 from pydantic import BaseModel
 
+from config import DEFAULT_PHONE
+
 import uuid
 
 class User(BaseModel):
@@ -7,7 +9,7 @@ class User(BaseModel):
     name: str
 
 class NewUser(BaseModel):
-    username: str
-    phone: str='79115901599'
+    username: str=None
+    phone: str=DEFAULT_PHONE
     company: str
     password: str
