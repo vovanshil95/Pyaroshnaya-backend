@@ -4,7 +4,7 @@ from database import Base
 class User(Base):
     __tablename__ = 'users'
     id = Column(UUID, primary_key=True)
-    name = Column(String, nullable=False, unique=True)
+    name = Column(String, unique=True)
     phone = Column(String, nullable=False, unique=True)
     company = Column(String, nullable=False)
     role = Column(String, nullable=False)

@@ -1,8 +1,8 @@
 """init db
 
-Revision ID: 4da99a993e0f
+Revision ID: b8acaf24e8ea
 Revises: 
-Create Date: 2023-07-17 22:42:41.574055
+Create Date: 2023-07-19 16:49:56.854906
 
 """
 from alembic import op
@@ -10,7 +10,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision = '4da99a993e0f'
+revision = 'b8acaf24e8ea'
 down_revision = None
 branch_labels = None
 depends_on = None
@@ -25,7 +25,7 @@ def upgrade() -> None:
     )
     op.create_table('unverified_user',
     sa.Column('id', sa.UUID(), nullable=False),
-    sa.Column('username', sa.String(), nullable=False),
+    sa.Column('username', sa.String(), nullable=True),
     sa.Column('phone', sa.String(), nullable=False),
     sa.Column('company', sa.String(), nullable=False),
     sa.Column('last_sms_code', sa.String(), nullable=False),
@@ -37,7 +37,7 @@ def upgrade() -> None:
     )
     op.create_table('users',
     sa.Column('id', sa.UUID(), nullable=False),
-    sa.Column('name', sa.String(), nullable=False),
+    sa.Column('name', sa.String(), nullable=True),
     sa.Column('phone', sa.String(), nullable=False),
     sa.Column('company', sa.String(), nullable=False),
     sa.Column('role', sa.String(), nullable=False),
@@ -52,6 +52,8 @@ def upgrade() -> None:
     sa.Column('user_id', sa.UUID(), nullable=False),
     sa.Column('password', sa.LargeBinary(), nullable=False),
     sa.Column('sms_code', sa.String(), nullable=True),
+    sa.Column('token', sa.String(), nullable=True),
+    sa.Column('token_exp_time', sa.TIMESTAMP(), nullable=True),
     sa.ForeignKeyConstraint(['user_id'], ['users.id'], ondelete='cascade'),
     sa.PrimaryKeyConstraint('id')
     )

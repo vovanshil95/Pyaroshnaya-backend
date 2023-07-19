@@ -11,7 +11,7 @@ class SmsVerification(BaseModel):
 
 class Credentials(BaseModel):
     username: str=None
-    phone: str=None
+    phone: str=DEFAULT_PHONE
     password: str
 
 class JwtTokens(BaseModel):
@@ -19,7 +19,8 @@ class JwtTokens(BaseModel):
     accessToken: str
 
 class RefreshTokenPayload(BaseModel):
-    id: uuid.UUID
+    jti: uuid.UUID
+    sub: uuid.UUID
 
 class AccessTokenHeader(BaseModel):
     alg: str='HS256'
@@ -34,3 +35,13 @@ class UserId(BaseResponse):
 
 class PhoneRequest(BaseModel):
     phone: str=DEFAULT_PHONE
+
+class AccessTokenSchema(BaseModel):
+    access_token: str
+
+class Token(BaseResponse):
+    token: str
+
+class NewPasswordSchema(BaseModel):
+    token: str
+    password: str

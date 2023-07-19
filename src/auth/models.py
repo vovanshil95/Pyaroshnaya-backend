@@ -11,6 +11,9 @@ class Auth(Base):
     user_id = Column(ForeignKey('users.id', ondelete='cascade'), nullable=False)
     password = Column(LargeBinary, nullable=False)
     sms_code = Column(String)
+    token = Column(String)
+    token_exp_time = Column(TIMESTAMP)
+
 
 
 class SmsSend(Base):

@@ -20,7 +20,7 @@ from database import get_async_session
 
 class AccessTokenPayload(BaseModel):
     id: uuid.UUID
-    username: str
+    username: str | None
     phone: str
     role: str
     balance: float
@@ -38,7 +38,7 @@ class SmsCodeManager:
         last_send = await session.get(SmsSend, client_request.client.host)
         if last_send is None:
             last_send = SmsSend(ip=client_request.client.host)
-        elif datetime.now() - last_send.time_send < timedelta(minutes=1):
+        elif datetime.now() - last_send.time_send < timedelta(minutes=1 if self.code_type == 'random' else 0):
             raise HTTPException(status_code=429, detail='Too many requests')
 
         last_send.time_send = msc_now()
@@ -49,11 +49,12 @@ class SmsCodeManager:
         elif self.code_type == 'constant':
             self.code = TEST_SMS_CODE
         yield self
-        async with request(method='POST',
-                           url='https://api3.greensms.ru/sms/send',
-                           headers={'Authorization': f'Bearer {GREEN_SMS_TOKEN}'},
-                           data={'to': self.phone, 'txt': f'code {self.code}', 'from': 'Пярошная'}) as resp:
-            await resp.json()
+        if self.code_type == 'random':
+            async with request(method='POST',
+                               url='https://api3.greensms.ru/sms/send',
+                               headers={'Authorization': f'Bearer {GREEN_SMS_TOKEN}'},
+                               data={'to': self.phone, 'txt': f'code {self.code}', 'from': 'Пярошная'}) as resp:
+                await resp.json()
 
     code: str
     phone: str
@@ -62,7 +63,7 @@ class SmsCodeManager:
 def encrypt(string: str | bytes) -> bytes:
     return hmac.new(SHA_KEY, string.encode() if isinstance(string, str) else string, 'sha256').digest()
 
-def base64_encode(content: str | dict | bytes) -> str:
+def base64_encode(content: str | bytes) -> str:
     if isinstance(content, str):
         content = content.encode()
     return base64.urlsafe_b64encode(content).decode()
