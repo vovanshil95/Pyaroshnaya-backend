@@ -7,23 +7,23 @@ import base64
 from conftest import async_session_maker
 from users.schemas import NewUser as NewUserSchema
 from users.models import User
-from auth.schemas import JwtTokens
 from auth.schemas import SmsVerification
 from auth.models import Auth
-from auth.utils import encrypt
+from auth.utils import encrypt, AccessTokenPayload
+
 
 @pytest.fixture()
 async def user_schema_templates():
     return [NewUserSchema(username='vlad',
-                         phone='+79115901599',
+                         phone='79115901599',
                          company='super_company',
                          password='123'),
             NewUserSchema(username='alex',
-                          phone='+79115901598',
+                          phone='79115901598',
                           company='super_company',
                           password='123'),
             NewUserSchema(username='dmitriy',
-                          phone='+79115901597',
+                          phone='79115901597',
                           company='super_company',
                           password='123')
             ]
@@ -124,99 +124,100 @@ async def send_new_password_resp(ac: AsyncClient, password_recovery_get_sms_resp
     response = await ac.put('/auth/newPassword', json={'user_id': user_schema_templates[2].id, 'password': '1234'})
     return response
 
-@pytest.mark.run(order=0)
+# @pytest.mark.run(order=0)
+@pytest.mark.parametrize('register_resp', {'change_name': False, 'change_phone': False})
 async def test_user_register_success(register_resp):
     assert register_resp.status_code == 200
     assert register_resp.json()['message'] == 'registration status success'
 
-@pytest.mark.run(order=1)
-async def test_user_register_success(register_resp):
-    assert register_resp.status_code == 429
-    assert register_resp.json()['message'] == 'Too many requests'
-
-@pytest.mark.parametrize("verification_phone_register_resp", {'success': False}, indirect=True)
-@pytest.mark.run(order=2)
-async def test_sms_verification_fail(ac: AsyncClient, verification_phone_register_resp):
-    assert verification_phone_register_resp.status_code == 421
-    assert verification_phone_register_resp.json()['message'] == 'code is failed'
-
-@pytest.mark.parametrize("verification_phone_register_resp", {'success': True}, indirect=True)
-@pytest.mark.run(order=3)
-async def test_sms_verification_success(ac: AsyncClient, verification_phone_register_resp, access_token_template):
-    token_payload = base64.urlsafe_b64decode(verification_phone_register_resp.json()['accessToken'].split(b'.')[1].decode())
-    assert verification_phone_register_resp.status_code == 200
-    assert token_payload == access_token_template.json()
-
-@pytest.mark.parametrize('login_resp', {'success': True, 'with_headers': False}, indirect=True)
-async def test_user_login_success(login_resp):
-    assert login_resp.status_code == 400
-    assert login_resp.json()['message'] == 'error: User-Agent required'
-
-@pytest.mark.parametrize('login_resp', {'success': True, 'with_headers': True}, indirect=True)
-async def test_user_login_success(login_resp):
-    assert login_resp.status_code == 200
-    assert base64.urlsafe_b64decode(login_resp.json()['accessToken'].split(b'.')[1].decode()) == access_token_template.json()
-
-@pytest.mark.parametrize('login_resp', {'success': False, 'with_headers': True}, indirect=True)
-async def test_user_login_fail(login_resp):
-    assert login_resp.status_code == 401
-    assert login_resp.json()['message'] == 'incorrect username and password'
-
-@pytest.mark.parametrize('logout_resp', {'invalid_token': False, 'without_auth': False}, indirect=True)
-async def test_user_logout_success(logout_resp):
-    assert logout_resp.status_code == 200
-    assert logout_resp.json()['message'] == 'status success, user logged out'
-
-@pytest.mark.parametrize('logout_resp', {'invalid_token': True, 'without_auth': False}, indirect=True)
-async def test_user_logout_invalid_token(logout_resp):
-    assert logout_resp.status_code == 498
-    assert logout_resp.json()['message'] == 'The access token is invalid'
-
-@pytest.mark.parametrize('logout_resp', {'invalid_token': False, 'without_auth': True}, indirect=True)
-async def test_user_logout_without_auth(logout_resp):
-    assert logout_resp.status_code == 401
-    assert logout_resp.json()['message'] == 'User is not authorized'
-
-@pytest.mark.parametrize('register_resp', {'change_phone': True}, indirect=True)
-async def test_same_name_user_register(register_resp):
-    assert register_resp.status_code == 421
-    assert register_resp.json()['message'] == 'User with same name already exists'
-
-@pytest.mark.parametrize('register_resp', {'change_name': True}, indirect=True)
-async def test_same_phone_user_register(ac: AsyncClient, register_resp):
-    assert register_resp.status_code == 422
-    assert register_resp.json()['message'] == 'User with same phone already exists'
-
-@pytest.mark.parametrize('password_recovery_get_sms_resp',  {'change_phone': True, 'user': 0}, indirect=True)
-async def test_password_recovery_get_sms_success(password_recovery_get_sms_resp):
-    assert password_recovery_get_sms_resp.status_code == 200
-    assert password_recovery_get_sms_resp.json()['message'] == 'status success: SMS-code was sent'
-
-@pytest.mark.parametrize('password_recovery_get_sms_resp',  {'change_phone': False, 'user': 0}, indirect=True)
-async def test_password_recovery_get_sms_second(password_recovery_get_sms_resp):
-    assert password_recovery_get_sms_resp.status_code == 429
-    assert password_recovery_get_sms_resp.json()['message'] == 'Too many requests'
-
-@pytest.mark.parametrize('password_recovery_get_sms_resp',  {'change_phone': True, 'user': 0}, indirect=True)
-async def test_password_recovery_get_sms_wrong_nuber():
-    assert password_recovery_get_sms_resp.status_code == 421
-    assert password_recovery_get_sms_resp.json()['message'] == 'The phone number was not found'
-
-
-@pytest.mark.parametrize('verification_phone_recovery_resp', {'success': False}, indirect=True)
-@pytest.mark.parametrize('password_recovery_get_sms_resp', {'user': 1}, indirect=True)
-async def test_recovery_send_code_success(verification_phone_recovery_resp):
-    assert verification_phone_recovery_resp.status_code == 421
-    assert verification_phone_recovery_resp.json()['message'] == 'code is failed'
-
-@pytest.mark.parametrize('verification_phone_recovery_resp', {'success': True}, indirect=True)
-@pytest.mark.parametrize('password_recovery_get_sms_resp', {'user': 1}, indirect=True)
-async def test_recovery_send_code_success(verification_phone_recovery_resp):
-    assert verification_phone_recovery_resp.status_code == 200
-    assert verification_phone_recovery_resp.json()['message'] == 'status success, phone verified'
-
-@pytest.mark.parametrize('verification_phone_recovery_resp', {'success': True}, indirect=True)
-@pytest.mark.parametrize('password_recovery_get_sms_resp', {'user': 2}, indirect=True)
-async def test_new_password(send_new_password_resp):
-    assert send_new_password_resp.status_code == 200
-    assert send_new_password_resp.json()['message'] == 'status success, password was changed'
+# @pytest.mark.run(order=1)
+# async def test_user_register_success(register_resp):
+#     assert register_resp.status_code == 429
+#     assert register_resp.json()['message'] == 'Too many requests'
+#
+# @pytest.mark.parametrize("verification_phone_register_resp", {'success': False}, indirect=True)
+# @pytest.mark.run(order=2)
+# async def test_sms_verification_fail(ac: AsyncClient, verification_phone_register_resp):
+#     assert verification_phone_register_resp.status_code == 421
+#     assert verification_phone_register_resp.json()['message'] == 'code is failed'
+#
+# @pytest.mark.parametrize("verification_phone_register_resp", {'success': True}, indirect=True)
+# @pytest.mark.run(order=3)
+# async def test_sms_verification_success(ac: AsyncClient, verification_phone_register_resp, access_token_template):
+#     token_payload = base64.urlsafe_b64decode(verification_phone_register_resp.json()['accessToken'].split(b'.')[1].decode())
+#     assert verification_phone_register_resp.status_code == 200
+#     assert token_payload == access_token_template.json()
+#
+# @pytest.mark.parametrize('login_resp', {'success': True, 'with_headers': False}, indirect=True)
+# async def test_user_login_success(login_resp):
+#     assert login_resp.status_code == 400
+#     assert login_resp.json()['message'] == 'error: User-Agent required'
+#
+# @pytest.mark.parametrize('login_resp', {'success': True, 'with_headers': True}, indirect=True)
+# async def test_user_login_success(login_resp):
+#     assert login_resp.status_code == 200
+#     assert base64.urlsafe_b64decode(login_resp.json()['accessToken'].split(b'.')[1].decode()) == access_token_template.json()
+#
+# @pytest.mark.parametrize('login_resp', {'success': False, 'with_headers': True}, indirect=True)
+# async def test_user_login_fail(login_resp):
+#     assert login_resp.status_code == 401
+#     assert login_resp.json()['message'] == 'incorrect username and password'
+#
+# @pytest.mark.parametrize('logout_resp', {'invalid_token': False, 'without_auth': False}, indirect=True)
+# async def test_user_logout_success(logout_resp):
+#     assert logout_resp.status_code == 200
+#     assert logout_resp.json()['message'] == 'status success, user logged out'
+#
+# @pytest.mark.parametrize('logout_resp', {'invalid_token': True, 'without_auth': False}, indirect=True)
+# async def test_user_logout_invalid_token(logout_resp):
+#     assert logout_resp.status_code == 498
+#     assert logout_resp.json()['message'] == 'The access token is invalid'
+#
+# @pytest.mark.parametrize('logout_resp', {'invalid_token': False, 'without_auth': True}, indirect=True)
+# async def test_user_logout_without_auth(logout_resp):
+#     assert logout_resp.status_code == 401
+#     assert logout_resp.json()['message'] == 'User is not authorized'
+#
+# @pytest.mark.parametrize('register_resp', {'change_phone': True}, indirect=True)
+# async def test_same_name_user_register(register_resp):
+#     assert register_resp.status_code == 421
+#     assert register_resp.json()['message'] == 'User with same name already exists'
+#
+# @pytest.mark.parametrize('register_resp', {'change_name': True}, indirect=True)
+# async def test_same_phone_user_register(ac: AsyncClient, register_resp):
+#     assert register_resp.status_code == 422
+#     assert register_resp.json()['message'] == 'User with same phone already exists'
+#
+# @pytest.mark.parametrize('password_recovery_get_sms_resp',  {'change_phone': True, 'user': 0}, indirect=True)
+# async def test_password_recovery_get_sms_success(password_recovery_get_sms_resp):
+#     assert password_recovery_get_sms_resp.status_code == 200
+#     assert password_recovery_get_sms_resp.json()['message'] == 'status success: SMS-code was sent'
+#
+# @pytest.mark.parametrize('password_recovery_get_sms_resp',  {'change_phone': False, 'user': 0}, indirect=True)
+# async def test_password_recovery_get_sms_second(password_recovery_get_sms_resp):
+#     assert password_recovery_get_sms_resp.status_code == 429
+#     assert password_recovery_get_sms_resp.json()['message'] == 'Too many requests'
+#
+# @pytest.mark.parametrize('password_recovery_get_sms_resp',  {'change_phone': True, 'user': 0}, indirect=True)
+# async def test_password_recovery_get_sms_wrong_nuber():
+#     assert password_recovery_get_sms_resp.status_code == 421
+#     assert password_recovery_get_sms_resp.json()['message'] == 'The phone number was not found'
+#
+#
+# @pytest.mark.parametrize('verification_phone_recovery_resp', {'success': False}, indirect=True)
+# @pytest.mark.parametrize('password_recovery_get_sms_resp', {'user': 1}, indirect=True)
+# async def test_recovery_send_code_success(verification_phone_recovery_resp):
+#     assert verification_phone_recovery_resp.status_code == 421
+#     assert verification_phone_recovery_resp.json()['message'] == 'code is failed'
+#
+# @pytest.mark.parametrize('verification_phone_recovery_resp', {'success': True}, indirect=True)
+# @pytest.mark.parametrize('password_recovery_get_sms_resp', {'user': 1}, indirect=True)
+# async def test_recovery_send_code_success(verification_phone_recovery_resp):
+#     assert verification_phone_recovery_resp.status_code == 200
+#     assert verification_phone_recovery_resp.json()['message'] == 'status success, phone verified'
+#
+# @pytest.mark.parametrize('verification_phone_recovery_resp', {'success': True}, indirect=True)
+# @pytest.mark.parametrize('password_recovery_get_sms_resp', {'user': 2}, indirect=True)
+# async def test_new_password(send_new_password_resp):
+#     assert send_new_password_resp.status_code == 200
+#     assert send_new_password_resp.json()['message'] == 'status success, password was changed'

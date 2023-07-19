@@ -6,7 +6,6 @@ from fastapi import Depends, Request, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from auth.models import SmsSend
-from utils import msc_now
 
 import hmac
 import uuid
@@ -38,10 +37,10 @@ class SmsCodeManager:
         last_send = await session.get(SmsSend, client_request.client.host)
         if last_send is None:
             last_send = SmsSend(ip=client_request.client.host)
-        elif datetime.now() - last_send.time_send < timedelta(minutes=1 if self.code_type == 'random' else 0):
+        elif datetime.utcnow() - last_send.time_send < timedelta(minutes=1 if self.code_type == 'random' else 0):
             raise HTTPException(status_code=429, detail='Too many requests')
 
-        last_send.time_send = msc_now()
+        last_send.time_send = datetime.utcnow()
         session.add(last_send)
 
         if self.code_type == 'random':
