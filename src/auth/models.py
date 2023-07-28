@@ -27,13 +27,11 @@ class RefreshToken(Base):
                  user_id: uuid.UUID=None,
                  user_agent: str=None,
                  exp: datetime=None,
-                 valid: bool=None,
                  last_use: datetime=None):
         self.id = id if id else uuid.uuid4()
         self.user_id = user_id
         self.user_agent = user_agent
         self.exp = exp
-        self.valid = valid
         self.last_use = last_use
 
 
@@ -42,5 +40,4 @@ class RefreshToken(Base):
     user_id = Column(ForeignKey('users.id', ondelete='cascade'), nullable=False)
     user_agent = Column(String, nullable=False)
     exp = Column(TIMESTAMP, nullable=False)
-    valid = Column(BOOLEAN, nullable=False)
     last_use = Column(TIMESTAMP)

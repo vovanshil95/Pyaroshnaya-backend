@@ -1,4 +1,3 @@
-import asyncio
 from typing import AsyncGenerator, Callable
 
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, AsyncEngine

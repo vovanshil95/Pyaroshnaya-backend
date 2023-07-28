@@ -11,7 +11,7 @@ class SmsVerification(BaseModel):
 
 class Credentials(BaseModel):
     username: str=None
-    phone: str=DEFAULT_PHONE
+    phone: str | None=DEFAULT_PHONE
     password: str
 
 class JwtTokens(BaseModel):

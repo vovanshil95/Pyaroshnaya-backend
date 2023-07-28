@@ -1,7 +1,6 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
-from users.routers import router as users_router
 from auth.routes import router as auth_router
 from config import ORIGINS
 from error_handlers import http_exception_handler

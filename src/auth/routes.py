@@ -1,4 +1,3 @@
-import asyncio
 import binascii
 import random
 import string
@@ -8,24 +7,24 @@ import re
 
 from pydantic import ValidationError
 from fastapi import APIRouter, Depends, HTTPException, Header, Request
-from sqlalchemy import select, and_, delete
+from sqlalchemy import select, and_, delete, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from config import REFRESH_TTL_DAYS, ACCESS_TTL_MINUTES, DEFAULT_PHONE
-from database import get_async_session, async_session_maker
+from database import get_async_session
 from auth.schemas import Credentials, JwtTokens, UserId, UserSign, SmsVerification, AccessTokenHeader, \
     RefreshTokenPayload, PhoneRequest, Token, NewPasswordSchema, AccessTokenSchema
 from auth.models import Auth, RefreshToken
 from users.models import User, UnverifiedUser
 from users.schemas import NewUser
 from auth.utils import encrypt, base64_encode, SmsCodeManager, AccessTokenPayload, base64_decode
-from utils import BaseResponse, msc_now
+from utils import BaseResponse
 
 router = APIRouter(prefix='/auth',
                    tags=['auth'])
 
 async def check_user_agent(user_agent: str = Header(...)):
-    if not user_agent:
+    if user_agent is None:
         raise HTTPException(status_code=400, detail='error: User-Agent required')
     return user_agent
 
@@ -71,18 +70,16 @@ async def get_refresh_token(Authorization: str = Header(...),
 
 async def check_new_user(request: Request,
                          new_user: NewUser,
-                         user_agent: str=Depends(check_user_agent)) -> UserSign:
+                         user_agent: str=Depends(check_user_agent),
+                         session: AsyncSession=Depends(get_async_session)) -> UserSign:
 
-    async with async_session_maker() as session1,\
-            async_session_maker() as session2:
-        same_names, same_phones = await asyncio.gather(
-            session1.execute(select(User).where(User.name == new_user.username)),
-            session2.execute(select(User).where(User.phone == new_user.phone)))
-
-    if same_names.first():
-        raise HTTPException(detail='user with same name already exists', status_code=421)
-    if same_phones.first():
-        raise HTTPException(detail='user with same name already exists', status_code=409)
+    same_user = (await session.execute(select(User).where(or_(User.name == new_user.username,
+                                                              User.phone == new_user.phone)))).scalar()
+    if same_user:
+        if same_user.phone == new_user.phone:
+            raise HTTPException(detail='user with same phone already exists', status_code=409)
+        if new_user.username is not None:
+            raise HTTPException(detail='user with same name already exists', status_code=409)
 
     return UserSign(ip=request.client.host, user_agent=user_agent)
 
@@ -110,7 +107,6 @@ def get_new_tokens(user: User,
                              user_id=user.id,
                              user_agent=user_agent,
                              exp=datetime.utcnow() + timedelta(days=REFRESH_TTL_DAYS),
-                             valid=True,
                              last_use=datetime.utcnow()))
     refresh_token = base64_encode(RefreshTokenPayload(jti=refresh_token_id, sub=user.id).json())
 
@@ -136,11 +132,13 @@ async def login(credentials: Credentials,
     if user is None:
         raise HTTPException(status_code=401, detail='incorrect username and password')
 
-    if (await session.execute(select(RefreshToken.id)\
-            .where(and_(RefreshToken.user_id==user.id,
-                        RefreshToken.user_agent == user_agent,
-                        RefreshToken.valid)))).scalars().all():
-        raise HTTPException(status_code=409, detail='re-authentication is not allowed')
+    if token := (await session.execute(select(RefreshToken)
+                        .where(and_(RefreshToken.user_id==user.id,
+                                    RefreshToken.user_agent == user_agent)))).scalar():
+        if datetime.utcnow() > token.exp:
+            await session.delete(token)
+        else:
+            raise HTTPException(status_code=409, detail='re-authentication is not allowed')
 
     jwt_tokens = get_new_tokens(user, user_agent, session)
 
@@ -148,8 +146,7 @@ async def login(credentials: Credentials,
 
 @router.post('/registration', responses={200: {'model': UserId},
                                          400: {'model': BaseResponse, 'description': 'error: User-Agent required'},
-                                         421: {'model': BaseResponse, 'description': 'user with same name already exists'},
-                                         409: {'model': BaseResponse, 'description': 'user with same phone already exists'},
+                                         409: {'model': BaseResponse, 'description': 'user with same phone or name already exists'},
                                          429: {'model': BaseResponse, 'description': 'too many requests'}})
 async def register(new_user: NewUser,
                    session: AsyncSession=Depends(get_async_session),
@@ -162,7 +159,7 @@ async def register(new_user: NewUser,
     session.add(UnverifiedUser(id=new_user_id,
                                ip=user_sign.ip,
                                last_sms_code=sender.code,
-                               last_sms_time=msc_now(),
+                               last_sms_time=datetime.utcnow(),
                                user_agent=user_sign.user_agent,
                                username=new_user.username,
                                phone=new_user.phone,
