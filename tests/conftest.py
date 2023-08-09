@@ -8,16 +8,16 @@ from httpx import AsyncClient
 
 sys.path.append(sys.path[0].replace('tests', 'src'))
 
+from main import app
 from database import get_db, get_async_session
 from config import TEST_DB_HOST, TEST_DB_PORT, TEST_DB_NAME, TEST_DB_USER, TEST_DB_PASS
 from auth.models import Base
-from main import app
 
-_, test_engine, _, test_get_async_session =  get_db(TEST_DB_HOST, TEST_DB_PORT, TEST_DB_NAME, TEST_DB_USER, TEST_DB_PASS)
+_, test_engine, async_session_maker_test, get_async_session_test =  get_db(TEST_DB_HOST, TEST_DB_PORT, TEST_DB_NAME, TEST_DB_USER, TEST_DB_PASS)
 
 Base.metadata.bind = test_engine
 
-app.dependency_overrides[get_async_session] = test_get_async_session
+app.dependency_overrides[get_async_session] = get_async_session_test
 
 @pytest.fixture(autouse=True, scope='session')
 async def prepare_database():

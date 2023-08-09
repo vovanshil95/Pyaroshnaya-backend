@@ -14,6 +14,7 @@ def get_db(host, port, db_name, user, password) -> tuple[str, AsyncEngine, sessi
     async def get_session() -> AsyncGenerator[AsyncSession, None]:
         async with session_maker() as session:
             yield session
+            await session.commit()
 
     return url, engine, session_maker, get_session
 
