@@ -2,8 +2,9 @@ import base64
 from datetime import timedelta
 from datetime import datetime
 
-from fastapi import Depends, Request, HTTPException
+from fastapi import Depends, Request, HTTPException, Header
 from pydantic import BaseModel
+from sqlalchemy import select, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 from auth.models import SmsSend
 
@@ -26,6 +27,11 @@ class AccessTokenPayload(BaseModel):
     tillDate: int | None
     exp: int
 
+async def check_user_agent(user_agent: str = Header(...)):
+    if user_agent is None:
+        raise HTTPException(status_code=400, detail='error: User-Agent required')
+    return user_agent
+
 class SmsCodeManager:
     def __init__(self, code_type: str='random'):
         assert code_type in ('random', 'constant')
@@ -33,15 +39,13 @@ class SmsCodeManager:
 
     async def __call__(self,
                        client_request: Request,
+                       user_agent:str=Depends(check_user_agent),
                        session: AsyncSession=Depends(get_async_session)):
-        last_send = await session.get(SmsSend, client_request.client.host)
-        if last_send is None:
-            last_send = SmsSend(ip=client_request.client.host)
-        elif datetime.utcnow() - last_send.time_send < timedelta(minutes=1 if self.code_type == 'random' else 0):
+        last_send = (await session.execute(select(SmsSend)
+                .where(and_(SmsSend.ip == client_request.client.host,
+                            SmsSend.user_agent == user_agent)))).scalars().first()
+        if last_send is not None and datetime.utcnow() - last_send.time_send < timedelta(minutes=1):
             raise HTTPException(status_code=429, detail='Too many requests')
-
-        last_send.time_send = datetime.utcnow()
-        session.add(last_send)
 
         if self.code_type == 'random':
             self.code = "".join(random.choices(string.digits, k=4))
@@ -55,6 +59,14 @@ class SmsCodeManager:
                                data={'to': self.phone, 'txt': f'code {self.code}', 'from': 'Пярошная'}) as resp:
                 await resp.json()
 
+        if last_send is None:
+            last_send = SmsSend(ip=client_request.client.host,
+                                user_agent=user_agent,
+                                user_id=self.send_to_user_id)
+        last_send.time_send = datetime.utcnow()
+        session.add(last_send)
+
+    send_to_user_id: uuid.UUID
     code: str
     phone: str
     code_type: str

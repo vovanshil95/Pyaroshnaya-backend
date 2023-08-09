@@ -18,7 +18,9 @@ class Auth(Base):
 
 class SmsSend(Base):
     __tablename__ = 'sms_send'
+    user_id = Column(ForeignKey('users.id', ondelete='cascade'), nullable=False)
     ip = Column(String, primary_key=True)
+    user_agent = Column(String, nullable=False)
     time_send = Column(TIMESTAMP, nullable=False)
 
 class RefreshToken(Base):

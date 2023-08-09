@@ -7,26 +7,21 @@ import re
 
 from pydantic import ValidationError
 from fastapi import APIRouter, Depends, HTTPException, Header, Request
-from sqlalchemy import select, and_, delete, or_
+from sqlalchemy import select, and_, delete, or_, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from config import REFRESH_TTL_DAYS, ACCESS_TTL_MINUTES, DEFAULT_PHONE
 from database import get_async_session
 from auth.schemas import Credentials, JwtTokens, UserId, UserSign, SmsVerification, AccessTokenHeader, \
     RefreshTokenPayload, PhoneRequest, Token, NewPasswordSchema, AccessTokenSchema
-from auth.models import Auth, RefreshToken
-from users.models import User, UnverifiedUser
+from auth.models import Auth, RefreshToken, SmsSend
+from users.models import User
 from users.schemas import NewUser
-from auth.utils import encrypt, base64_encode, SmsCodeManager, AccessTokenPayload, base64_decode
+from auth.utils import encrypt, base64_encode, SmsCodeManager, AccessTokenPayload, base64_decode, check_user_agent
 from utils import BaseResponse
 
 router = APIRouter(prefix='/auth',
                    tags=['auth'])
-
-async def check_user_agent(user_agent: str = Header(...)):
-    if user_agent is None:
-        raise HTTPException(status_code=400, detail='error: User-Agent required')
-    return user_agent
 
 async def get_access_token(Authorization: str = Header(...)) -> AccessTokenPayload:
     base64_chars = r'[a-zA-Z0-9=_+-/]'
@@ -35,11 +30,16 @@ async def get_access_token(Authorization: str = Header(...)) -> AccessTokenPaylo
     if pattern.match(Authorization) is None:
         raise HTTPException(status_code=401, detail='user is not authorized')
     header, payload, sign = Authorization.split('Bearer ')[1].split('.')
-
-    if not encrypt(header + '.' + payload) == base64_decode(sign):
+    try:
+        decoded_sign = base64_decode(sign)
+        decoded_payload = base64_decode(payload)
+    except binascii.Error:
         raise HTTPException(status_code=498, detail='the access token is invalid')
 
-    user_token = AccessTokenPayload.parse_raw(base64_decode(payload))
+    if not encrypt(header + '.' + payload) == decoded_sign:
+        raise HTTPException(status_code=498, detail='the access token is invalid')
+
+    user_token = AccessTokenPayload.parse_raw(decoded_payload)
 
     if int(datetime.utcnow().timestamp()) > user_token.exp:
         raise HTTPException(status_code=498, detail='the access token is invalid')
@@ -147,59 +147,67 @@ async def login(credentials: Credentials,
 @router.post('/registration', responses={200: {'model': UserId},
                                          400: {'model': BaseResponse, 'description': 'error: User-Agent required'},
                                          409: {'model': BaseResponse, 'description': 'user with same phone or name already exists'},
-                                         429: {'model': BaseResponse, 'description': 'too many requests'}})
+                                         429: {'model': BaseResponse, 'description': 'too many requests'},
+                                         422: {'model': BaseResponse, 'description': 'phone number must be specified'}})
 async def register(new_user: NewUser,
                    session: AsyncSession=Depends(get_async_session),
-                   user_sign: UserSign=Depends(check_new_user),
                    sender: SmsCodeManager=Depends(SmsCodeManager(code_type='constant'))) -> BaseResponse:
+    
     if new_user.phone in (DEFAULT_PHONE, None):
         raise HTTPException(status_code=422, detail='phone number must be specified')
+
+    same_phone = (await session.execute(select(User).where(User.phone == new_user.phone))).scalars().first()
+    if new_user.username is not None:
+        same_name = (await session.execute(select(User).where(User.name == new_user.username))).scalars().first()
+    if same_phone or (new_user.username is not None and same_name):
+        raise HTTPException(status_code=409, detail='user with same phone or name already exists')
+
+
     new_user_id = uuid.uuid4()
     sender.phone=new_user.phone
-    session.add(UnverifiedUser(id=new_user_id,
-                               ip=user_sign.ip,
-                               last_sms_code=sender.code,
-                               last_sms_time=datetime.utcnow(),
-                               user_agent=user_sign.user_agent,
-                               username=new_user.username,
-                               phone=new_user.phone,
-                               company=new_user.company,
-                               password=encrypt(new_user.password)))
+    sender.send_to_user_id = new_user_id
+    session.add(User(id=new_user_id,
+                     name=new_user.username,
+                     role='user',
+                     status='unverified',
+                     phone=new_user.phone,
+                     company=new_user.company,
+                     balance=0))
+    await session.flush()
+    session.add(Auth(id=uuid.uuid4(),
+                     user_id=new_user_id,
+                     password=encrypt(new_user.password),
+                     sms_code=sender.code))
 
     return BaseResponse(message='registration status success, SMS-code was sent')
 
 @router.post('/smsCode', responses={200: {'model': JwtTokens},
-                                    400: {'model': BaseResponse, 'description': 'error: User-Agent required'},
-                                    421: {'model': BaseResponse, 'description': 'code is failed'},
-                                    404: {'model': BaseResponse, 'description': 'user not found'}})
+                                         400: {'model': BaseResponse, 'description': 'error: User-Agent required'},
+                                         421: {'model': BaseResponse, 'description': 'code is failed'},
+                                         404: {'model': BaseResponse, 'description': 'user not found'}})
 async def code_verification(verification: SmsVerification,
                             user_agent: str=Depends(check_user_agent),
                             session: AsyncSession=Depends(get_async_session)) -> JwtTokens:
 
-    new_user = (await session.execute(select(UnverifiedUser)
-                        .filter(and_(UnverifiedUser.user_agent==user_agent,
-                                     UnverifiedUser.phone==verification.phone)))).scalars().first()
-    if not new_user:
+    user_code = (await session.execute(select(User, Auth.sms_code)
+            .join(SmsSend).join(Auth)
+            .where(and_(User.phone == verification.phone,
+                        SmsSend.user_agent == user_agent)))).first()
+
+    if not user_code:
         raise HTTPException(status_code=404, detail='user not found')
-    if new_user.last_sms_code != verification.code:
+
+    new_user, sms_code = user_code
+
+    if sms_code != verification.code:
         raise HTTPException(status_code=421, detail='code is failed')
 
-    user = User(id=new_user.id,
-                name=new_user.username,
-                phone=new_user.phone,
-                company=new_user.company,
-                role='user',
-                balance=0,
-                till_date=None)
+    new_user.status = 'verified'
+    session.add(new_user)
 
-    session.add(user)
-    await session.flush()
-    tokens = get_new_tokens(user=user, user_agent=user_agent, session=session)
-    await session.delete(new_user)
+    await session.execute(update(Auth).where(Auth.user_id == new_user.id).values(sms_code=None))
 
-    session.add(Auth(id=uuid.uuid4(),
-                     user_id=user.id,
-                     password=new_user.password))
+    tokens = get_new_tokens(user=new_user, user_agent=user_agent, session=session)
 
     return tokens
 
@@ -216,7 +224,6 @@ async def logout(user_token: AccessTokenPayload=Depends(get_access_token),
     refresh_tokens = (await session.execute(select(RefreshToken)
                            .where(and_(RefreshToken.user_agent == user_agent,
                                        RefreshToken.user_id == user_token.id)))).all()
-
     if refresh_tokens == []:
         await session.execute(delete(RefreshToken).filter(RefreshToken.id == user_token.id))
         raise HTTPException(status_code=300, detail='user is blocked')
@@ -228,8 +235,8 @@ async def logout(user_token: AccessTokenPayload=Depends(get_access_token),
     return BaseResponse(message='status success, user logged out')
 
 @router.post('/passwordRecovery', responses={200: {'model': BaseResponse},
-                                             421: {'model': BaseResponse, 'description': 'The phone number was not found'},
-                                             429: {'model': BaseResponse, 'description': 'Too many requests'}})
+                                                  421: {'model': BaseResponse, 'description': 'The phone number was not found'},
+                                                  429: {'model': BaseResponse, 'description': 'Too many requests'}})
 async def get_phone(phone_request: PhoneRequest,
                     session: AsyncSession=Depends(get_async_session),
                     sms_sender: SmsCodeManager=Depends(SmsCodeManager(code_type='constant'))):
@@ -237,14 +244,18 @@ async def get_phone(phone_request: PhoneRequest,
         raise HTTPException(status_code=421, detail='The phone number was not found')
 
     sms_sender.phone = phone_request.phone
+    sms_sender.send_to_user_id = user.id
+
     auth = (await session.execute(select(Auth).filter(Auth.user_id == user.id))).scalars().first()
     auth.sms_code = sms_sender.code
+
+    session.add(auth)
 
     return BaseResponse(message='status success: SMS-code was sent')
 
 @router.put('/passwordRecovery', responses={200: {'model': BaseResponse},
-                                            404: {'model': BaseResponse, 'description': 'user not found'},
-                                            421: {'model': BaseResponse, 'description': 'code is failed'}})
+                                                 404: {'model': BaseResponse, 'description': 'user not found'},
+                                                 421: {'model': BaseResponse, 'description': 'code is failed'}})
 async def code_verification_recovery(verification: SmsVerification,
                                      session: AsyncSession=Depends(get_async_session)):
     auth = (await session.execute(select(Auth).join(User).where(User.phone == verification.phone))).scalars().first()
@@ -256,6 +267,7 @@ async def code_verification_recovery(verification: SmsVerification,
     token = ''.join(random.choices(string.ascii_lowercase + string.digits, k=64))
 
     auth.sms_code = None
+
     auth.token = token
     auth.token_exp_time = datetime.utcnow() + timedelta(minutes=ACCESS_TTL_MINUTES)
     session.add(auth)
@@ -263,7 +275,7 @@ async def code_verification_recovery(verification: SmsVerification,
     return Token(message='status success, phone verified', token=token)
 
 @router.post('/newPassword', responses={200: {'model': BaseResponse},
-                                        498: {'model': BaseResponse, 'description': 'the access token is invalid'}})
+                                             498: {'model': BaseResponse, 'description': 'the access token is invalid'}})
 async def get_new_password(new_pass: NewPasswordSchema,
                            session: AsyncSession=Depends(get_async_session)):
     auth = (await session.execute(select(Auth).filter(Auth.token==new_pass.token))).scalars().first()
@@ -285,15 +297,11 @@ async def get_new_password(new_pass: NewPasswordSchema,
     return BaseResponse(message='status success, phone verified')
 
 @router.get('/newTokens', responses={200: {'model': JwtTokens},
-                                     400: {'model': BaseResponse, 'description': 'attempt to update non-expired token, token revoked'},
-                                     401: {'model': BaseResponse, 'description': 'the refresh token has already been used'},
-                                     404: {'model': BaseResponse, 'description': 'refresh token not found'},
-                                     498: {'model': BaseResponse, 'description': 'the refresh token is invalid'}})
+                                          401: {'model': BaseResponse, 'description': 'the refresh token has already been used'},
+                                          404: {'model': BaseResponse, 'description': 'refresh token not found'},
+                                          498: {'model': BaseResponse, 'description': 'the refresh token is invalid'}})
 async def give_new_tokens(refresh_token: RefreshToken=Depends(get_refresh_token),
-                        session: AsyncSession=Depends(get_async_session)) -> JwtTokens:
-
-    if refresh_token.exp > datetime.utcnow():
-        raise HTTPException(status_code=400, detail='attempt to update non-expired token, token revoked')
+                          session: AsyncSession=Depends(get_async_session)) -> JwtTokens:
 
     user = await session.get(User, refresh_token.user_id)
     await session.delete(refresh_token)
@@ -305,20 +313,15 @@ async def give_new_tokens(refresh_token: RefreshToken=Depends(get_refresh_token)
     return new_tokens
 
 @router.get('/newAccessToken', responses={200: {'model': JwtTokens},
-                                          400: {'model': BaseResponse, 'description': 'attempt to update non-expired token, refresh token revoked'},
-                                          401: {'model': BaseResponse, 'description': 'the refresh token has already been used'},
-                                          403: {'model': BaseResponse, 'description': 'refresh token expired'},
-                                          404: {'model': BaseResponse, 'description': 'refresh token not found'},
-                                          498: {'model': BaseResponse, 'description': 'the refresh token is invalid'}})
-async def get_access_token(refresh_token: RefreshToken=Depends(get_refresh_token),
+                                               401: {'model': BaseResponse, 'description': 'the refresh token has already been used'},
+                                               403: {'model': BaseResponse, 'description': 'refresh token expired'},
+                                               404: {'model': BaseResponse, 'description': 'refresh token not found'},
+                                               498: {'model': BaseResponse, 'description': 'the refresh token is invalid'}})
+async def get_new_access_token(refresh_token: RefreshToken=Depends(get_refresh_token),
                            session: AsyncSession=Depends(get_async_session)) -> AccessTokenSchema:
     if datetime.utcnow() > refresh_token.exp:
         raise HTTPException(status_code=403, detail='refresh token expired')
 
-    if datetime.utcnow() < refresh_token.last_use + timedelta(minutes=ACCESS_TTL_MINUTES):
-        await session.delete(refresh_token)
-        await session.commit()
-        raise HTTPException(status_code=400, detail='attempt to update non-expired token, refresh token revoked')
 
     user = await session.get(User, refresh_token.user_id)
 
