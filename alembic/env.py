@@ -9,7 +9,7 @@ from alembic import context
 sys.path.append(os.path.join(sys.path[0], 'src'))
 
 from src.database import DATABASE_URL
-from src.auth.models import Base
+from src.questions.models import Base
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
