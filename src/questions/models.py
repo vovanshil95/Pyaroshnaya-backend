@@ -33,7 +33,7 @@ class Question(Base):
 
     id = Column(UUID, primary_key=True)
     question_text = Column(String, nullable=False)
-    snippet = Column(String, nullable=False)
+    snippet = Column(String)
     is_required = Column(BOOLEAN, nullable=False)
     category_id = Column(ForeignKey('question_category.id', ondelete='cascade'), nullable=False)
 
