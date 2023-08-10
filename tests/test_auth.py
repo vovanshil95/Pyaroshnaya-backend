@@ -7,34 +7,8 @@ from sqlalchemy import delete, update
 from auth.models import Auth, RefreshToken, SmsSend
 from auth.utils import encrypt
 from users.models import User
-from conftest import async_session_maker_test, AsyncClient
+from conftest import async_session_maker_test, AsyncClient, user_in_db
 from config import TEST_SMS_CODE
-
-@pytest.fixture()
-async def user_in_db():
-    async with async_session_maker_test.begin() as session:
-        user_id = uuid.uuid4()
-        session.add(User(id=user_id,
-                         name='first_user',
-                         phone='79123456',
-                         company='super_company',
-                         role='user',
-                         status='verified',
-                         balance=False))
-        await session.flush()
-        session.add(Auth(id=uuid.uuid4(),
-                         user_id=user_id,
-                         password=encrypt('1234')))
-        session.add(RefreshToken(id=uuid.uuid4(),
-                                 user_id=user_id,
-                                 user_agent='first-user-agent',
-                                 exp=datetime.utcnow() + timedelta(days=20),
-                                 last_use=datetime.utcnow() - timedelta(minutes=10)))
-    yield user_id
-    async with async_session_maker_test.begin() as session:
-        await session.execute(delete(RefreshToken))
-        await session.execute(delete(Auth))
-        await session.execute(delete(User))
 
 @pytest.fixture()
 async def unverified_user_in_db():
