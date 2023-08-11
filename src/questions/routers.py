@@ -16,16 +16,19 @@ from history.models import GptInteraction
 from database import get_async_session
 from utils import BaseResponse
 
-router = APIRouter(prefix='/api/question',
+router = APIRouter(prefix='/question',
                    tags=['Questions'])
 
-QuestionsData = list[tuple[QuestionModel, list[str], list[str]]]
+QuestionsData = list[tuple[QuestionModel, list[str], list[str], list[uuid.UUID]]]
 
 def get_gpt_response(questions: list[QuestionSchema]) -> str:
     return 'this is just test response not from gpt'
 
 async def get_question_data(user_id: uuid.UUID, session: AsyncSession, category_id: uuid.UUID) -> QuestionsData:
-    questions = (await session.execute(select(QuestionModel, func.array_agg(Answer.text), func.array_agg(Option.text))
+    questions = (await session.execute(select(QuestionModel,
+                                              func.array_agg(Answer.text),
+                                              func.array_agg(Option.text),
+                                              func.array_agg(Answer.id))
                                        .join(Answer, isouter=True)
                                        .join(Option, isouter=True)
                                        .where(and_(QuestionModel.category_id==category_id,
@@ -34,7 +37,8 @@ async def get_question_data(user_id: uuid.UUID, session: AsyncSession, category_
                                        .group_by(QuestionModel.id))).all()
     questions = list(map(lambda q: (q[0],
                                     list(filter(lambda ans: ans is not None, q[1])),
-                                    list(filter(lambda opt: opt is not None, q[2]))), questions))
+                                    list(filter(lambda opt: opt is not None, q[2])),
+                                    list(filter(lambda opt: opt is not None, q[3]))), questions))
     return questions
 
 def get_question_schemas(questions: QuestionsData) -> list[QuestionSchema]:
@@ -91,13 +95,12 @@ async def gpt_response(category: CategoryId,
     interaction_id = uuid.uuid4()
     answer_ids = []
 
-    session.add(GptInteraction(id=uuid.uuid4(),
-                   user_id=user_token.id,
-                   time_happened=datetime.now(),
-                   response=response))
+    session.add(GptInteraction(id=interaction_id,
+                               time_happened=datetime.now(),
+                               response=response))
 
     for question_data in questions_data:
-        answer_ids.extend(question_data[2])
+        answer_ids.extend(question_data[3])
 
     await session.flush()
     await session.execute(update(Answer).where(Answer.id.in_(answer_ids)).values(interaction_id=interaction_id))

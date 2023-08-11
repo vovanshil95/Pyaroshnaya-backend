@@ -7,7 +7,7 @@ from sqlalchemy import delete, update
 from auth.models import Auth, RefreshToken, SmsSend
 from auth.utils import encrypt
 from users.models import User
-from conftest import async_session_maker_test, AsyncClient, user_in_db
+from conftest import async_session_maker_test, AsyncClient, user_in_db, authorisation
 from config import TEST_SMS_CODE
 
 @pytest.fixture()
@@ -107,15 +107,10 @@ async def test_sms_code(ac: AsyncClient,
                           (False, False, 422)])
 async def test_logout(ac: AsyncClient,
                       user_in_db,
+                      authorisation,
                       with_token: bool,
                       chane_token: bool,
                       status_code: int):
-
-    login_response = await ac.post('/auth/login',
-                                   headers={'user-agent': 'second-user-agent'},
-                                   json={'username': 'first_user',
-                                   'password': '1234'})
-    authorisation = f"Bearer {login_response.json()['accessToken']}"
 
     if chane_token:
         authorisation = authorisation[:-1]
