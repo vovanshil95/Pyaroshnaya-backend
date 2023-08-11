@@ -1,3 +1,4 @@
+import uuid
 from _datetime import datetime, timedelta
 
 from pydantic import BaseModel
@@ -7,3 +8,7 @@ def msc_now() -> datetime:
 
 class BaseResponse(BaseModel):
     message: str
+
+
+class IdSchema(BaseModel):
+    id: uuid.UUID

@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, UUID, TIMESTAMP, LargeBinary, Float
+from sqlalchemy import Column, String, UUID, TIMESTAMP, Float
 from database import Base
 
 class User(Base):

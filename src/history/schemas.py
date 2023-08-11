@@ -9,7 +9,7 @@ from utils import BaseResponse
 
 class GptInteraction(BaseModel):
     Id: uuid.UUID
-    user_id: uuid.UUID
+    userId: uuid.UUID
     Questions: list[Question]
     dateTime: datetime.datetime
     gptResponse: str
