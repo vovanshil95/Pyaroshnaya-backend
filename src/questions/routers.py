@@ -16,7 +16,7 @@ from history.models import GptInteraction
 from database import get_async_session
 from utils import BaseResponse
 
-router = APIRouter(prefix='/api/question',
+router = APIRouter(prefix='/question',
                    tags=['Questions'])
 
 QuestionsData = list[tuple[QuestionModel, list[str], list[str]]]

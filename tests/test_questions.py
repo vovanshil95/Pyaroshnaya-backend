@@ -55,7 +55,7 @@ async def questions_in_db(categories_in_db, user_in_db):
 
 async def test_get_categories(ac: AsyncClient,
                               categories_in_db):
-    response = await ac.get('/api/question/categories')
+    response = await ac.get('/question/categories')
     assert response.status_code == 200
     assert len(response.json()['categories']) == 2
     assert response.json()['categories'][0]['title']  == 'super-test-category-1'
@@ -69,7 +69,7 @@ async def test_get_questions(ac: AsyncClient,
                                    'password': '1234'})
     authorisation = f"Bearer {login_response.json()['accessToken']}"
 
-    response = await ac.get('/api/question/questions',
+    response = await ac.get('/question/questions',
                             headers={'Authorization': authorisation},
                             params={'categoryId': questions_in_db[0]})
     assert response.status_code == 200
@@ -98,7 +98,7 @@ async def test_gpt_response(ac: AsyncClient,
                                    'password': '1234'})
     authorisation = f"Bearer {login_response.json()['accessToken']}"
 
-    response = await ac.post('/api/question/response',
+    response = await ac.post('/question/response',
                              headers={'Authorization': authorisation},
                              json={'categoryId': questions_in_db[0].hex})
 
