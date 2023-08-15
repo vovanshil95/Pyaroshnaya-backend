@@ -6,16 +6,29 @@ from history.models import Base
 
 class Category(Base):
     __tablename__ = 'question_category'
-    def __init__(self, id: uuid.UUID, title: str, description: str=None, parent_id: uuid.UUID=None):
+    def __init__(self,
+                 id: uuid.UUID,
+                 title: str,
+                 is_main_screen_presented: bool,
+                 is_category_screen_presented: bool,
+                 order_index: str,
+                 description: str=None,
+                 parent_id: uuid.UUID=None):
         self.id = id
         self.title = title
         self.description = description
         self.parent_id = parent_id
+        self.is_main_screen_presented = is_main_screen_presented
+        self.is_category_screen_presented = is_category_screen_presented
+        self.order_index = order_index
 
     id=Column(UUID, primary_key=True)
     title=Column(String, nullable=False)
     description=Column(String)
     parent_id=Column(UUID)
+    is_main_screen_presented = Column(BOOLEAN, nullable=False, default=False)
+    is_category_screen_presented = Column(BOOLEAN, nullable=False, default=False)
+    order_index = Column(String, nullable=False, unique=True)
 
 class Question(Base):
     __tablename__ = 'question'

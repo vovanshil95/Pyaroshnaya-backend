@@ -11,6 +11,8 @@ async def test_get_categories(ac: AsyncClient,
     assert len(response.json()['categories']) == 2
     assert response.json()['categories'][0]['title']  == 'super-test-category-1'
     assert response.json()['categories'][1]['title']  == 'super-test-category-2'
+    assert response.json()['categories'][0]['orderIndex']  == '0'
+    assert response.json()['categories'][1]['orderIndex'] == '1'
 
 async def test_get_questions(ac: AsyncClient,
                              questions_in_db,
