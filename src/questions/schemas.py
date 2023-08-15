@@ -10,6 +10,9 @@ class Category(BaseModel):
     title: str
     Description: str | None
     ParentId: uuid.UUID | None
+    isMainScreenPresented: bool
+    isCategoryScreenPresented: bool
+    orderIndex: str
 
 class CategoriesResponse(BaseResponse):
     categories: list[Category]

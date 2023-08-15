@@ -90,11 +90,17 @@ async def categories_in_db():
         second_id = uuid.uuid4()
         session.add(Category(id=first_id,
                              title='super-test-category-1',
+                             is_main_screen_presented=True,
+                             is_category_screen_presented=False,
+                             order_index='0',
                              description='super-test-category-1-description',
                              parent_id=None))
         await session.flush()
         session.add(Category(id=second_id,
                              title='super-test-category-2',
+                             is_main_screen_presented=False,
+                             is_category_screen_presented=True,
+                             order_index='1',
                              description='super-test-category-2-description',
                              parent_id=first_id))
     yield first_id, second_id

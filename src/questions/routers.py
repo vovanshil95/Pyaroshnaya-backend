@@ -64,8 +64,13 @@ async def get_categories(session: AsyncSession = Depends(get_async_session)) -> 
                CategorySchema(Id=category_model.id,
                               title=category_model.title,
                               Description=category_model.description,
-                              ParentId=category_model.parent_id),
-               (await session.execute(select(CategoryModel))).scalars().all())))
+                              ParentId=category_model.parent_id,
+                              isMainScreenPresented=category_model.is_main_screen_presented,
+                              isCategoryScreenPresented=category_model.is_category_screen_presented,
+                              orderIndex=category_model.order_index
+                              ),
+               (await session.execute(select(CategoryModel)
+                                      .order_by(CategoryModel.order_index))).scalars().all())))
 
 @router.get('/questions', responses={200: {'model': QuestionsResponse},
                                           400: {'model': BaseResponse},
