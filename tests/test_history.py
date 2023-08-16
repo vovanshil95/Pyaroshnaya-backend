@@ -10,7 +10,7 @@ async def test_get_history(ac: AsyncClient,
                            authorisation):
     await ac.post('/question/response',
                   headers={'Authorization': authorisation},
-                  json={'categoryId': questions_in_db[0].hex})
+                  json={'categoryId': questions_in_db[0][0].hex})
 
     response = await ac.get('/history/gptHistory',
                              headers={'Authorization': authorisation})
@@ -30,7 +30,7 @@ async def test_add_to_favorite(ac: AsyncClient,
                                status_code: int):
     await ac.post('/question/response',
                   headers={'Authorization': authorisation},
-                  json={'categoryId': questions_in_db[0].hex})
+                  json={'categoryId': questions_in_db[0][0].hex})
 
     interaction_id = (await ac.get('/history/gptHistory',
                              headers={'Authorization': authorisation})).json()['data'][0]['Id']
@@ -58,7 +58,7 @@ async def test_delete_from_favorite(ac: AsyncClient,
                                     status_code: int):
     await ac.post('/question/response',
                   headers={'Authorization': authorisation},
-                  json={'categoryId': questions_in_db[0].hex})
+                  json={'categoryId': questions_in_db[0][0].hex})
 
     interaction_id = (await ac.get('/history/gptHistory',
                              headers={'Authorization': authorisation})).json()['data'][0]['Id']

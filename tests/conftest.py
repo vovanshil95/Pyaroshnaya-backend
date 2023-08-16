@@ -111,12 +111,14 @@ async def categories_in_db():
 async def questions_in_db(categories_in_db, user_in_db):
     async with async_session_maker_test.begin() as session:
         first_question_id = uuid.uuid4()
+        second_question_id = uuid.uuid4()
         third_question_id = uuid.uuid4()
+        fourth_question_id = uuid.uuid4()
         session.add(Question(id=first_question_id,
                              question_text='super-question-test-text-1',
                              is_required=True,
                              category_id=categories_in_db[0]))
-        session.add(Question(id=uuid.uuid4(),
+        session.add(Question(id=second_question_id,
                              question_text='super-question-test-text-2',
                              is_required=False,
                              category_id=categories_in_db[0],
@@ -126,7 +128,7 @@ async def questions_in_db(categories_in_db, user_in_db):
                              is_required=True,
                              category_id=categories_in_db[0],
                              snippet='super-test-snippet-3'))
-        session.add(Question(id=uuid.uuid4(),
+        session.add(Question(id=fourth_question_id,
                              question_text='super-question-test-text-4',
                              is_required=True,
                              category_id=categories_in_db[1]))
@@ -139,7 +141,10 @@ async def questions_in_db(categories_in_db, user_in_db):
                            question_id=third_question_id,
                            text='super-answer-3',
                            user_id=user_in_db))
-    yield categories_in_db
+    yield categories_in_db, [first_question_id,
+                             second_question_id,
+                             third_question_id,
+                             fourth_question_id]
     async with async_session_maker_test.begin() as session:
         await session.execute(delete(Question))
         await session.execute(delete(Answer))
