@@ -135,10 +135,7 @@ async def login(credentials: Credentials,
     if token := (await session.execute(select(RefreshToken)
                         .where(and_(RefreshToken.user_id==user.id,
                                     RefreshToken.user_agent == user_agent)))).scalar():
-        if datetime.utcnow() > token.exp:
-            await session.delete(token)
-        else:
-            raise HTTPException(status_code=409, detail='re-authentication is not allowed')
+        await session.delete(token)
 
     jwt_tokens = get_new_tokens(user, user_agent, session)
 
