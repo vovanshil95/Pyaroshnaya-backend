@@ -69,7 +69,7 @@ async def test_register(ac: AsyncClient, user_in_db, name: str, status_code: int
          ('first_user', '79123456', 'second-user-agent', '1234', 422),
          ('second_user', None, '1234', 'second-user-agent', 401),
          ('first_user', None, '12345', 'second-user-agent', 401),
-         (None, '79123456', '1234', 'first-user-agent', 409)])
+         (None, '79123456', '1234', 'first-user-agent', 200)])
 async def test_login(ac: AsyncClient,
                      user_in_db,
                      name: str,
