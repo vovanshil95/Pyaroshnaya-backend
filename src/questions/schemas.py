@@ -23,7 +23,7 @@ class Question(BaseModel):
     Snippet: str | None
     Options: list[str] | None
     Answer: str | None
-    Answers: str | None
+    Answers: list[str] | None
     IsRequired: bool
     CategoryId: uuid.UUID
 

@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import select, func, and_, update, or_
+from sqlalchemy import select, func, and_, update, or_, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from auth.routes import get_access_token
@@ -143,12 +143,19 @@ async def answer(answer: AnswerSchema,
         answer_model.text = answer.answer
         session.add(answer_model)
     else:
-        session.add(list(map(lambda a:
-                             Option(id=uuid.uuid4(),
-                                    question_id=answer.questionId,
-                                    text=a),
-                             answer.answers)))
-
+        await session.execute(delete(AnswerModel).where(and_(
+            AnswerModel.question_id == answer.questionId,
+            AnswerModel.user_id == user_token.id,
+            AnswerModel.interaction_id.is_(None)
+        )))
+        await session.flush()
+        session.add_all(list(map(lambda a:
+                                 AnswerModel(id=uuid.uuid4(),
+                                             question_id=answer.questionId,
+                                             text=a,
+                                             user_id=user_token.id),
+                                 answer.answers)))
+        await session.flush()
     return QuestionsResponse(message='status success',
                              questions=get_question_schemas(
                                  await get_question_data(user_id=user_token.id,
