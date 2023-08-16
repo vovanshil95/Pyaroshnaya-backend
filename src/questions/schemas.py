@@ -32,3 +32,8 @@ class QuestionsResponse(BaseResponse):
 
 class CategoryId(BaseModel):
     categoryId: uuid.UUID
+
+class Answer(BaseModel):
+    questionId: uuid.UUID
+    answer: str | None
+    answers: list[str] | None

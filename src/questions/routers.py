@@ -7,10 +7,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from auth.routes import get_access_token
 from auth.utils import AccessTokenPayload
-from questions.models import Category as CategoryModel, Answer, Option
+from questions.models import Category as CategoryModel, Option
+from questions.models import Answer as AnswerModel
 from questions.models import Question as QuestionModel
 from questions.schemas import Question as QuestionSchema
 from questions.schemas import Category as CategorySchema
+from questions.schemas import Answer as AnswerSchema
 from questions.schemas import CategoriesResponse, QuestionsResponse, CategoryId
 from history.models import GptInteraction
 from database import get_async_session
@@ -26,14 +28,14 @@ def get_gpt_response(questions: list[QuestionSchema]) -> str:
 
 async def get_question_data(user_id: uuid.UUID, session: AsyncSession, category_id: uuid.UUID) -> QuestionsData:
     questions = (await session.execute(select(QuestionModel,
-                                              func.array_agg(Answer.text),
+                                              func.array_agg(AnswerModel.text),
                                               func.array_agg(Option.text),
-                                              func.array_agg(Answer.id))
-                                       .join(Answer, isouter=True)
+                                              func.array_agg(AnswerModel.id))
+                                       .join(AnswerModel, isouter=True)
                                        .join(Option, isouter=True)
                                        .where(and_(QuestionModel.category_id==category_id,
-                                                   or_(Answer.user_id==user_id,
-                                                       Answer.id.is_(None))))
+                                                   or_(AnswerModel.user_id==user_id,
+                                                       AnswerModel.id.is_(None))))
                                        .group_by(QuestionModel.id))).all()
     questions = list(map(lambda q: (q[0],
                                     list(filter(lambda ans: ans is not None, q[1])),
@@ -108,6 +110,48 @@ async def gpt_response(category: CategoryId,
         answer_ids.extend(question_data[3])
 
     await session.flush()
-    await session.execute(update(Answer).where(Answer.id.in_(answer_ids)).values(interaction_id=interaction_id))
+    await session.execute(update(AnswerModel).where(AnswerModel.id.in_(answer_ids)).values(interaction_id=interaction_id))
 
     return questions
+
+@router.post('/questions', responses={200: {'model': QuestionsResponse},
+                                           401: {'model': BaseResponse, 'description': 'User is not authorized'},
+                                           404: {'model': BaseResponse, 'description': 'Question with this id doesnt exist'},
+                                           422: {'model': BaseResponse, 'description': 'Validation error: answer or answers must be specified'},
+                                           498: {'model': BaseResponse, 'description': 'the access token is invalid'}})
+async def answer(answer: AnswerSchema,
+                 user_token: AccessTokenPayload=Depends(get_access_token),
+                 session: AsyncSession=Depends(get_async_session)) -> QuestionsResponse:
+
+    if (question := await session.get(QuestionModel, answer.questionId)) is None:
+        raise HTTPException(404, 'Question with this id doesnt exist')
+
+    if (answer.answer is None and answer.answers is None or
+        answer.answer is not None and answer.answers is not None):
+        raise HTTPException(422, 'Validation error answer or answers must be specified')
+    if answer.answers is None:
+        if (answer_model := (await session.execute(
+                select(AnswerModel)
+                .where(and_(AnswerModel.question_id == answer.questionId,
+                            AnswerModel.user_id == user_token.id,
+                            AnswerModel.interaction_id.is_(None)))
+        )).scalars().first()) is None:
+            answer_model = AnswerModel(id=uuid.uuid4(),
+                                       question_id=answer.questionId,
+                                       text='',
+                                       user_id=user_token.id)
+        answer_model.text = answer.answer
+        session.add(answer_model)
+    else:
+        session.add(list(map(lambda a:
+                             Option(id=uuid.uuid4(),
+                                    question_id=answer.questionId,
+                                    text=a),
+                             answer.answers)))
+
+    return QuestionsResponse(message='status success',
+                             questions=get_question_schemas(
+                                 await get_question_data(user_id=user_token.id,
+                                                         session=session,
+                                                         category_id=question.category_id
+                                                        )))
