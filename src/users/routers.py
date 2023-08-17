@@ -1,5 +1,3 @@
-import uuid
-
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select, and_, update
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -10,29 +8,11 @@ from auth.utils import AccessTokenPayload, check_user_agent
 from database import get_async_session
 from users.models import User
 from users.schemas import UserProfile, UserProfileResponse, Theme, Username
-from utils import BaseResponse
+from src.utils import BaseResponse
+from users.utils import get_profile
 
 router = APIRouter(prefix='/profile',
                    tags=['Profile'])
-
-
-async def get_profile(session: AsyncSession, user_id: uuid.UUID, user_agent: str) -> UserProfileResponse:
-    user = await session.get(User, user_id)
-
-    theme = (await session.execute(
-        select(RefreshToken.theme)
-        .where(and_(RefreshToken.user_id == user_id,
-                    RefreshToken.user_agent == user_agent)))).scalar()
-
-    return UserProfileResponse(
-        message='status success',
-        data=UserProfile(
-            id=user.id,
-            username=user.name,
-            company=user.company,
-            theme=theme
-        )
-    )
 
 @router.get('/profile', responses={200: {'model': UserProfile},
                                         400: {'model': BaseResponse, 'description': 'error: User-Agent required'},

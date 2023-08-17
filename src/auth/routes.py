@@ -14,7 +14,7 @@ from auth.schemas import Credentials, JwtTokens, UserSign, AccessTokenHeader, \
     RefreshTokenPayload, AccessTokenSchema, Passwords
 from auth.models import Auth, RefreshToken
 from users.models import User
-from users.routers import get_profile
+from users.utils import get_profile
 from users.schemas import NewUser, UserProfile
 from auth.utils import encrypt, base64_encode, AccessTokenPayload, base64_decode, check_user_agent
 from utils import BaseResponse
