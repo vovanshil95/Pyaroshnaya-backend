@@ -1,9 +1,9 @@
 import telebot
 
-from bot.config import TOKEN
+from bot.config_ import TOKEN
 import keyboards as KEYBOARD
-import bot.config as CONSTS
-from functions import get_login_password, getMagicLink
+import bot.config_ as CONSTS
+from functions import get_login_password
 
 bot = telebot.TeleBot(TOKEN, parse_mode="MARKDOWN")
 
@@ -15,9 +15,6 @@ def send_welcome(message):
 def messageAnswer(message):
 	if message.text == CONSTS.GET_LOGIN_PASSWORD_TEXT:
 		answer = get_login_password(message.chat.id)
-		bot.reply_to(message, answer)
-	elif message.text == CONSTS.GET_ENTER_LINK:
-		answer = getMagicLink(message.chat.id)
 		bot.reply_to(message, answer)
 	else:
 		bot.reply_to(message, CONSTS.MSG_WELLCOME_TEXT, reply_markup=KEYBOARD.wellcome_keyboard)

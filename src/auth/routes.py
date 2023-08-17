@@ -72,11 +72,8 @@ async def check_new_user(request: Request,
                          user_agent: str=Depends(check_user_agent),
                          session: AsyncSession=Depends(get_async_session)) -> UserSign:
 
-    same_user = (await session.execute(select(User).where(or_(User.name == new_user.username,
-                                                              User.phone == new_user.phone)))).scalar()
+    same_user = (await session.execute(select(User).where(User.name == new_user.username))).scalar()
     if same_user:
-        if same_user.phone == new_user.phone:
-            raise HTTPException(detail='user with same phone already exists', status_code=409)
         if new_user.username is not None:
             raise HTTPException(detail='user with same name already exists', status_code=409)
 
@@ -85,7 +82,6 @@ async def check_new_user(request: Request,
 def generate_access_token(user: User) -> str:
     payload = AccessTokenPayload(id=user.id,
                                  username=user.name,
-                                 phone=user.phone,
                                  role=user.role,
                                  balance=user.balance,
                                  tillDate=user.till_date,
@@ -114,19 +110,15 @@ def get_new_tokens(user: User,
     return tokens
 
 @router.post('/login', responses={200: {'model': JwtTokens},
-                                  401: {'model': BaseResponse, 'description': 'incorrect username and password'},
-                                  409: {'model': BaseResponse, 'description': 're-authentication is not allowed'}})
+                                       400: {'model': BaseResponse, 'description': 'error: User-Agent required'},
+                                       401: {'model': BaseResponse, 'description': 'incorrect username and password'}})
 async def login(credentials: Credentials,
                 session: AsyncSession=Depends(get_async_session),
                 user_agent: str=Depends(check_user_agent)) -> JwtTokens:
-    if credentials.username is None and credentials.phone in (DEFAULT_PHONE, None) or \
-            credentials.username is not None and credentials.phone not in (DEFAULT_PHONE, None):
-        raise HTTPException(status_code=422, detail='either phone number or username must be specified')
 
     user = (await session.execute(select(User)
                                   .join(Auth)
-                                  .where(and_(User.name == credentials.username if credentials.username else
-                                                                                User.phone == credentials.phone,
+                                  .where(and_(User.name == credentials.username,
                                               Auth.password == encrypt(credentials.password))))).scalars().first()
     if user is None:
         raise HTTPException(status_code=401, detail='incorrect username and password')

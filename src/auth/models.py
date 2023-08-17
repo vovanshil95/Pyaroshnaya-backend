@@ -1,7 +1,7 @@
 from datetime import datetime
 import uuid
 
-from sqlalchemy import Column, LargeBinary, ForeignKey, UUID, TIMESTAMP, BOOLEAN, String
+from sqlalchemy import Column, LargeBinary, ForeignKey, UUID, TIMESTAMP, String
 
 from users.models import Base
 

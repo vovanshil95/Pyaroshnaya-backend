@@ -8,7 +8,7 @@ from auth.utils import AccessTokenPayload, check_user_agent
 from database import get_async_session
 from users.models import User
 from users.schemas import UserProfile, UserProfileResponse, Theme, Username
-from src.utils import BaseResponse
+from utils import BaseResponse
 from users.utils import get_profile
 
 router = APIRouter(prefix='/profile',

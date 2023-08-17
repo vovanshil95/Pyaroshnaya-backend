@@ -1,6 +1,11 @@
 import base64
 from datetime import timedelta
 from datetime import datetime
+import hmac
+import uuid
+from aiohttp import request
+import random
+import string
 
 from fastapi import Depends, Request, HTTPException, Header
 from pydantic import BaseModel
@@ -8,20 +13,13 @@ from sqlalchemy import select, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 from auth.models import SmsSend
 
-import hmac
-import uuid
-from aiohttp import request
-import random
-import string
-
-from src.config import SHA_KEY, GREEN_SMS_TOKEN, TEST_SMS_CODE
+from config import SHA_KEY, GREEN_SMS_TOKEN, TEST_SMS_CODE
 from database import get_async_session
 
 
 class AccessTokenPayload(BaseModel):
     id: uuid.UUID
     username: str | None
-    phone: str
     role: str
     balance: float
     tillDate: int | None

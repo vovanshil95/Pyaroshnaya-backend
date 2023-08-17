@@ -5,7 +5,7 @@ import string
 
 from sqlalchemy import select, update, delete
 
-import bot.config as CONSTS
+import bot.config_ as CONSTS
 from auth.models import Auth, RefreshToken
 from auth.utils import encrypt
 from database import async_session_maker
@@ -42,8 +42,3 @@ def get_login_password(chat_id: int):
 
     result = dict(login=name, password=password)
     return CONSTS.YOUR_LOGIN + result.get("login") + '\n' + CONSTS.YOUR_PASSWORD + result.get("password")
-
-
-def getMagicLink(chatId):
-    result = 'https://sbhsbj.com'
-    return result

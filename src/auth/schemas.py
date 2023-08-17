@@ -10,8 +10,7 @@ class SmsVerification(BaseModel):
     code: str='1692'
 
 class Credentials(BaseModel):
-    username: str=None
-    phone: str | None=DEFAULT_PHONE
+    username: str
     password: str
 
 class JwtTokens(BaseModel):
