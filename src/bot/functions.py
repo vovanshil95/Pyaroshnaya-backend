@@ -1,4 +1,4 @@
-import my_consts as MY_CONSTS
+import consts as MY_CONSTS
 
 def getLoginPassword(chatId):
     # Проверяем, если такой chatId уже существует в нашей базе данных (если пользователь уже зарегистрирован)

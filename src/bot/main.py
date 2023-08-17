@@ -1,11 +1,11 @@
 import telebot
 
 from config import MY_TOKEN
-import my_keyboards as MY_KEYBOARD
-import my_consts as MY_CONSTS
-import my_functions as MY_FUNCTIONS
+import keyboards as MY_KEYBOARD
+import consts as MY_CONSTS
+import functions as MY_FUNCTIONS
 
-bot = telebot.TeleBot(MY_TOKEN.TOKEN, parse_mode="MARKDOWN") # You can set parse_mode by default. HTML or MARKDOWN
+bot = telebot.TeleBot(MY_TOKEN.TOKEN, parse_mode="MARKDOWN")
 
 @bot.message_handler(commands=['start', 'help'])
 def send_welcome(message):
