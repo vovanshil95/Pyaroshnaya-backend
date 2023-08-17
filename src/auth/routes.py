@@ -11,10 +11,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from config import REFRESH_TTL_DAYS, ACCESS_TTL_MINUTES, DEFAULT_PHONE
 from database import get_async_session
 from auth.schemas import Credentials, JwtTokens, UserSign, AccessTokenHeader, \
-    RefreshTokenPayload, AccessTokenSchema
+    RefreshTokenPayload, AccessTokenSchema, Passwords
 from auth.models import Auth, RefreshToken
 from users.models import User
-from users.schemas import NewUser
+from users.routers import get_profile
+from users.schemas import NewUser, UserProfile
 from auth.utils import encrypt, base64_encode, AccessTokenPayload, base64_decode, check_user_agent
 from utils import BaseResponse
 
@@ -194,3 +195,23 @@ async def get_new_access_token(refresh_token: RefreshToken=Depends(get_refresh_t
     session.add(refresh_token)
 
     return AccessTokenSchema(access_token=generate_access_token(user))
+
+@router.post('/changePassword', responses={200: {'model': UserProfile},
+                                                400: {'model': BaseResponse, 'description': 'error: User-Agent required'},
+                                                401: {'model': BaseResponse, 'description': 'user is not authorized'},
+                                                409: {'model': BaseResponse, 'description': 'Old password is incorrect'},
+                                                498: {'model': BaseResponse, 'description': 'the access token is invalid'}})
+async def changeTheme(passwords: Passwords,
+                      user_agent: str=Depends(check_user_agent),
+                      session: AsyncSession=Depends(get_async_session),
+                      access_token: AccessTokenPayload=Depends(get_access_token)):
+
+    auth = (await session.execute(select(Auth).where(Auth.user_id == access_token.id))).scalar()
+
+    if auth.password != encrypt(passwords.oldPassword):
+        raise HTTPException(status_code=409, detail='Old password is wrong')
+
+    auth.password = encrypt(passwords.newPassword)
+    session.add(auth)
+
+    return await get_profile(session, access_token.id, user_agent)

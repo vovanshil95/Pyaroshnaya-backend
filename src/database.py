@@ -4,7 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, AsyncEngin
 from sqlalchemy.orm import declarative_base
 from sqlalchemy.orm import sessionmaker
 
-from config import DB_HOST, DB_NAME, DB_PASS, DB_PORT, DB_USER
+from src.config import DB_HOST, DB_NAME, DB_PASS, DB_PORT, DB_USER
 
 def get_db(host, port, db_name, user, password) -> tuple[str, AsyncEngine, sessionmaker, Callable[[], AsyncGenerator[AsyncSession, None]]]:
     url = f"postgresql+asyncpg://{user}:{password}@{host}:{port}/{db_name}"

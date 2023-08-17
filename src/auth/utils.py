@@ -14,7 +14,7 @@ from aiohttp import request
 import random
 import string
 
-from config import SHA_KEY, GREEN_SMS_TOKEN, TEST_SMS_CODE
+from src.config import SHA_KEY, GREEN_SMS_TOKEN, TEST_SMS_CODE
 from database import get_async_session
 
 

@@ -10,9 +10,6 @@ class Auth(Base):
     id = Column(UUID, primary_key=True)
     user_id = Column(ForeignKey('users.id', ondelete='cascade'), nullable=False)
     password = Column(LargeBinary, nullable=False)
-    sms_code = Column(String)
-    token = Column(String)
-    token_exp_time = Column(TIMESTAMP)
 
 
 
@@ -29,10 +26,12 @@ class RefreshToken(Base):
                  user_id: uuid.UUID=None,
                  user_agent: str=None,
                  exp: datetime=None,
-                 last_use: datetime=None):
+                 last_use: datetime=None,
+                 theme: str='LIGHT_THEME'):
         self.id = id if id else uuid.uuid4()
         self.user_id = user_id
         self.user_agent = user_agent
+        self.theme = theme
         self.exp = exp
         self.last_use = last_use
 
@@ -43,3 +42,4 @@ class RefreshToken(Base):
     user_agent = Column(String, nullable=False)
     exp = Column(TIMESTAMP, nullable=False)
     last_use = Column(TIMESTAMP)
+    theme = Column(String, nullable=False, default='LIGHT_THEME')

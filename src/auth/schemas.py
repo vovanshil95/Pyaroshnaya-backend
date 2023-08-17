@@ -45,3 +45,7 @@ class Token(BaseResponse):
 class NewPasswordSchema(BaseModel):
     token: str
     password: str
+
+class Passwords(BaseModel):
+    oldPassword: str
+    newPassword: str
