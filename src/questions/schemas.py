@@ -6,10 +6,10 @@ from utils import BaseResponse
 
 
 class Category(BaseModel):
-    Id: uuid.UUID
+    id: uuid.UUID
     title: str
-    Description: str | None
-    ParentId: uuid.UUID | None
+    description: str | None
+    parentId: uuid.UUID | None
     isMainScreenPresented: bool
     isCategoryScreenPresented: bool
     orderIndex: str
@@ -18,14 +18,14 @@ class CategoriesResponse(BaseResponse):
     categories: list[Category]
 
 class Question(BaseModel):
-    Id: uuid.UUID
-    Question: str
-    Snippet: str | None
-    Options: list[str] | None
-    Answer: str | None
-    Answers: list[str] | None
-    IsRequired: bool
-    CategoryId: uuid.UUID
+    id: uuid.UUID
+    question: str
+    snippet: str | None
+    options: list[str] | None
+    answer: str | None
+    answers: list[str] | None
+    isRequired: bool
+    categoryId: uuid.UUID
 
 class QuestionsResponse(BaseResponse):
     questions: list[Question]

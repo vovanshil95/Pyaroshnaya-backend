@@ -45,16 +45,16 @@ async def get_question_data(user_id: uuid.UUID, session: AsyncSession, category_
 
 def get_question_schemas(questions: QuestionsData) -> list[QuestionSchema]:
     return list(map(lambda question_data:
-                    QuestionSchema(Id=question_data[0].id,
-                                   Question=question_data[0].question_text,
-                                   Snippet=question_data[0].snippet,
-                                   Options=question_data[2]
+                    QuestionSchema(id=question_data[0].id,
+                                   question=question_data[0].question_text,
+                                   snippet=question_data[0].snippet,
+                                   options=question_data[2]
                                    if len(question_data[2]) != 0 else None,
-                                   IsRequired=question_data[0].is_required,
-                                   CategoryId=question_data[0].category_id,
-                                   Answer=question_data[1][0]
+                                   isRequired=question_data[0].is_required,
+                                   categoryId=question_data[0].category_id,
+                                   answer=question_data[1][0]
                                    if len(question_data[1]) == 1 else None,
-                                   Answers=question_data[1]
+                                   answers=question_data[1]
                                    if len(question_data[1]) > 1 else None), questions))
 
 
@@ -63,10 +63,10 @@ def get_question_schemas(questions: QuestionsData) -> list[QuestionSchema]:
 async def get_categories(session: AsyncSession = Depends(get_async_session)) -> CategoriesResponse:
     return CategoriesResponse(message='status success',
                               categories=list(map(lambda category_model:
-               CategorySchema(Id=category_model.id,
+               CategorySchema(id=category_model.id,
                               title=category_model.title,
-                              Description=category_model.description,
-                              ParentId=category_model.parent_id,
+                              description=category_model.description,
+                              parentId=category_model.parent_id,
                               isMainScreenPresented=category_model.is_main_screen_presented,
                               isCategoryScreenPresented=category_model.is_category_screen_presented,
                               orderIndex=category_model.order_index
@@ -95,7 +95,7 @@ async def gpt_response(category: CategoryId,
     questions_data = await get_question_data(user_token.id, session, category.categoryId)
     questions = get_question_schemas(questions_data)
     for question in questions:
-        if question.IsRequired and not question.Answers and not question.Answer:
+        if question.isRequired and not question.answers and not question.answer:
             raise HTTPException(status_code=400, detail='required fields not filled')
     response = get_gpt_response(questions)
 

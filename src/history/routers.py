@@ -47,21 +47,21 @@ async def get_history(session: AsyncSession, user_id: uuid.UUID) -> HistoryRespo
         .group_by(text('(interaction.id)')))).all()
 
     interactions = list(map(lambda interaction:
-                            GptInteractionSchema(Id=interaction[0],
+                            GptInteractionSchema(id=interaction[0],
                                                  userId=interaction[1][0][0],
                                                  dateTime=interaction[2][0],
                                                  gptResponse=interaction[3][0],
                                                  isFavorite=interaction[4][0],
-                                                 Questions=[QuestionSchema(
-                                                     Id=id,
-                                                     Question=interaction[6][i],
-                                                     Snippet=interaction[7][i],
-                                                     Options=interaction[8][i] if interaction[8][i] != [None] else None,
-                                                     Answer=interaction[9][i][0] if len(
+                                                 questions=[QuestionSchema(
+                                                     id=id,
+                                                     question=interaction[6][i],
+                                                     snippet=interaction[7][i],
+                                                     options=interaction[8][i] if interaction[8][i] != [None] else None,
+                                                     answer=interaction[9][i][0] if len(
                                                          interaction[9][i]) == 1 else None,
-                                                     Answers=interaction[9][i] if len(interaction[9][i]) > 1 else None,
-                                                     IsRequired=interaction[10][i],
-                                                     CategoryId=interaction[11][i]
+                                                     answers=interaction[9][i] if len(interaction[9][i]) > 1 else None,
+                                                     isRequired=interaction[10][i],
+                                                     categoryId=interaction[11][i]
                                                  ) for i, id in enumerate(interaction[5])]), interactions))
 
     return HistoryResponse(message='status success', data=interactions)

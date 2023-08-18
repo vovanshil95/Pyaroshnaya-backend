@@ -8,9 +8,9 @@ from utils import BaseResponse
 
 
 class GptInteraction(BaseModel):
-    Id: uuid.UUID
+    id: uuid.UUID
     userId: uuid.UUID
-    Questions: list[Question]
+    questions: list[Question]
     dateTime: datetime.datetime
     gptResponse: str
     isFavorite: bool

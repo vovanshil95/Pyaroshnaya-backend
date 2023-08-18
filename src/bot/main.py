@@ -1,4 +1,8 @@
 import telebot
+import os
+import sys
+
+sys.path.append(os.getcwd())
 
 from bot.config_ import TOKEN
 import keyboards as KEYBOARD
