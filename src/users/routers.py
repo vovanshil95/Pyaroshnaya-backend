@@ -28,10 +28,10 @@ async def get_profile_route(user_agent: str=Depends(check_user_agent),
                                                 401: {'model': BaseResponse, 'description': 'user is not authorized'},
                                                 409: {'model': BaseResponse, 'description': 'Username is already taken'},
                                                 498: {'model': BaseResponse, 'description': 'the access token is invalid'}})
-async def get_profile_route(username: Username,
-                            user_agent: str=Depends(check_user_agent),
-                            session: AsyncSession=Depends(get_async_session),
-                            access_token: AccessTokenPayload=Depends(get_access_token)) -> UserProfileResponse:
+async def change_username(username: Username,
+                          user_agent: str=Depends(check_user_agent),
+                          session: AsyncSession=Depends(get_async_session),
+                          access_token: AccessTokenPayload=Depends(get_access_token)) -> UserProfileResponse:
 
     if (await session.execute(select(User).where(User.name == username.username))).scalar() is not None:
         raise HTTPException(status_code=409, detail='Username is already taken')
@@ -44,10 +44,10 @@ async def get_profile_route(username: Username,
                                              400: {'model': BaseResponse, 'description': 'error: User-Agent required'},
                                              401: {'model': BaseResponse, 'description': 'user is not authorized'},
                                              498: {'model': BaseResponse, 'description': 'the access token is invalid'}})
-async def changeTheme(theme: Theme,
-                      user_agent: str=Depends(check_user_agent),
-                      session: AsyncSession=Depends(get_async_session),
-                      access_token: AccessTokenPayload=Depends(get_access_token)):
+async def change_theme(theme: Theme,
+                       user_agent: str=Depends(check_user_agent),
+                       session: AsyncSession=Depends(get_async_session),
+                       access_token: AccessTokenPayload=Depends(get_access_token)):
     await session.execute(update(RefreshToken).where(and_(RefreshToken.user_id == access_token.id,
                         RefreshToken.user_agent == user_agent)).values(theme=theme.theme))
     await session.flush()

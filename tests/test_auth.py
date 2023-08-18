@@ -117,3 +117,18 @@ async def test_get_new_access_token(ac: AsyncClient,
                                          'Authorization': f'Bearer {refresh_token}'})
 
     assert response.status_code == status_code
+
+@pytest.mark.parametrize('old_password, status_code',
+                         [('1234', 200),
+                          ('12345', 409)])
+async def test_change_password(ac: AsyncClient,
+                               user_in_db,
+                               authorisation,
+                               old_password: str,
+                               status_code: int):
+    response = await ac.post('auth/changePassword',
+                             headers={'Authorization': authorisation,
+                                      'user-agent': 'first-user-agent'},
+                             json={'oldPassword': old_password, 'newPassword': '12345'})
+
+    assert response.status_code == status_code

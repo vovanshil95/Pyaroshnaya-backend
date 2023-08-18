@@ -133,10 +133,10 @@ async def login(credentials: Credentials,
     return jwt_tokens
 
 @router.post('/logout', responses={200: {'model': BaseResponse},
-                                   300: {'model': BaseResponse, 'description': 'user is blocked'},
-                                   400: {'model': BaseResponse, 'description': 'error: User-Agent required'},
-                                   401: {'model': BaseResponse, 'description': 'user is not authorized'},
-                                   498: {'model': BaseResponse, 'description': 'the access token is invalid'}})
+                                        300: {'model': BaseResponse, 'description': 'user is blocked'},
+                                        400: {'model': BaseResponse, 'description': 'error: User-Agent required'},
+                                        401: {'model': BaseResponse, 'description': 'user is not authorized'},
+                                        498: {'model': BaseResponse, 'description': 'the access token is invalid'}})
 async def logout(user_token: AccessTokenPayload=Depends(get_access_token),
                  user_agent: str=Depends(check_user_agent),
                  session: AsyncSession=Depends(get_async_session)) -> BaseResponse:
@@ -193,10 +193,10 @@ async def get_new_access_token(refresh_token: RefreshToken=Depends(get_refresh_t
                                                 401: {'model': BaseResponse, 'description': 'user is not authorized'},
                                                 409: {'model': BaseResponse, 'description': 'Old password is incorrect'},
                                                 498: {'model': BaseResponse, 'description': 'the access token is invalid'}})
-async def changeTheme(passwords: Passwords,
-                      user_agent: str=Depends(check_user_agent),
-                      session: AsyncSession=Depends(get_async_session),
-                      access_token: AccessTokenPayload=Depends(get_access_token)):
+async def change_password(passwords: Passwords,
+                          user_agent: str=Depends(check_user_agent),
+                          session: AsyncSession=Depends(get_async_session),
+                          access_token: AccessTokenPayload=Depends(get_access_token)):
 
     auth = (await session.execute(select(Auth).where(Auth.user_id == access_token.id))).scalar()
 

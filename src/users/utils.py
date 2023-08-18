@@ -16,6 +16,8 @@ async def get_profile(session: AsyncSession, user_id: uuid.UUID, user_agent: str
         .where(and_(RefreshToken.user_id == user_id,
                     RefreshToken.user_agent == user_agent)))).scalar()
 
+    theme = 'LIGHT_THEME' if theme is None else theme
+
     return UserProfileResponse(
         message='status success',
         data=UserProfile(
