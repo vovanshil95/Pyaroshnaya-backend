@@ -53,11 +53,9 @@ async def user_in_db():
         user_id = uuid.uuid4()
         session.add(User(id=user_id,
                          name='first_user',
-                         phone='79123456',
                          company='super_company',
                          role='user',
-                         status='verified',
-                         balance=False))
+                         chat_id=1234))
         await session.flush()
         session.add(Auth(id=uuid.uuid4(),
                          user_id=user_id,

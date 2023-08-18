@@ -1,8 +1,8 @@
 """init db
 
-Revision ID: 3a873da959f3
+Revision ID: 6374c17df5c9
 Revises: 
-Create Date: 2023-08-15 10:28:05.844974
+Create Date: 2023-08-18 18:27:47.167571
 
 """
 from alembic import op
@@ -10,7 +10,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision = '3a873da959f3'
+revision = '6374c17df5c9'
 down_revision = None
 branch_labels = None
 depends_on = None
@@ -38,24 +38,21 @@ def upgrade() -> None:
     )
     op.create_table('users',
     sa.Column('id', sa.UUID(), nullable=False),
+    sa.Column('chat_id', sa.Integer(), nullable=False),
     sa.Column('name', sa.String(), nullable=True),
-    sa.Column('phone', sa.String(), nullable=False),
-    sa.Column('company', sa.String(), nullable=False),
+    sa.Column('company', sa.String(), nullable=True),
     sa.Column('role', sa.String(), nullable=False),
     sa.Column('balance', sa.Float(), nullable=False),
     sa.Column('till_date', sa.TIMESTAMP(), nullable=True),
-    sa.Column('status', sa.String(), nullable=False),
+    sa.Column('theme', sa.String(), nullable=False),
     sa.PrimaryKeyConstraint('id'),
-    sa.UniqueConstraint('name'),
-    sa.UniqueConstraint('phone')
+    sa.UniqueConstraint('chat_id'),
+    sa.UniqueConstraint('name')
     )
     op.create_table('auth',
     sa.Column('id', sa.UUID(), nullable=False),
     sa.Column('user_id', sa.UUID(), nullable=False),
     sa.Column('password', sa.LargeBinary(), nullable=False),
-    sa.Column('sms_code', sa.String(), nullable=True),
-    sa.Column('token', sa.String(), nullable=True),
-    sa.Column('token_exp_time', sa.TIMESTAMP(), nullable=True),
     sa.ForeignKeyConstraint(['user_id'], ['users.id'], ondelete='cascade'),
     sa.PrimaryKeyConstraint('id')
     )
@@ -74,6 +71,7 @@ def upgrade() -> None:
     sa.Column('user_agent', sa.String(), nullable=False),
     sa.Column('exp', sa.TIMESTAMP(), nullable=False),
     sa.Column('last_use', sa.TIMESTAMP(), nullable=True),
+    sa.Column('theme', sa.String(), nullable=False),
     sa.ForeignKeyConstraint(['user_id'], ['users.id'], ondelete='cascade'),
     sa.PrimaryKeyConstraint('id')
     )
