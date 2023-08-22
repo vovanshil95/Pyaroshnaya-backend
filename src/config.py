@@ -16,6 +16,8 @@ TEST_DB_NAME = os.environ.get('TEST_DB_NAME')
 TEST_DB_USER = os.environ.get('TEST_DB_USER')
 TEST_DB_PASS = os.environ.get('TEST_DB_PASS')
 
+OPENAI_API_KEY = os.environ.get('OPENAI_API_KEY')
+
 SHA_KEY = os.environ.get('SHA_KEY').encode()
 
 GREEN_SMS_TOKEN = os.environ.get('GREEN_SMS_TOKEN')

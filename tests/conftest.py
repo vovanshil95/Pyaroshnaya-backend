@@ -17,13 +17,28 @@ from config import TEST_DB_HOST, TEST_DB_PORT, TEST_DB_NAME, TEST_DB_USER, TEST_
 from auth.utils import encrypt
 from users.models import User
 from auth.models import Base, Auth, RefreshToken
-from questions.models import Category, Question, Answer
+from questions.models import Category, Question, Answer, Prompt
+from questions.routers import get_gpt_send
 
 _, test_engine, async_session_maker_test, get_async_session_test =  get_db(TEST_DB_HOST, TEST_DB_PORT, TEST_DB_NAME, TEST_DB_USER, TEST_DB_PASS)
 
 Base.metadata.bind = test_engine
 
+def get_gpt_send_test():
+    def get_gpt_response(answers: list[str], prompt: list[str]) -> str:
+
+        answers = list(map(lambda ans: '' if ans is None else ans, answers))
+
+        answers.insert(0, None)
+
+        filled_prompt = '\n'.join(prompt).format(*answers)
+
+        return f'test response not from gpt to prompt {filled_prompt}'
+
+    return get_gpt_response
+
 app.dependency_overrides[get_async_session] = get_async_session_test
+app.dependency_overrides[get_gpt_send] = get_gpt_send_test
 
 @pytest.fixture(autouse=True, scope='session')
 async def prepare_database():
@@ -101,6 +116,23 @@ async def categories_in_db():
                              order_index='1',
                              description='super-test-category-2-description',
                              parent_id=first_id))
+        await session.flush()
+        session.add(Prompt(id=uuid.uuid4(),
+                           category_id=first_id,
+                           text='super prompt 1 {1}',
+                           order_index='0'))
+        session.add(Prompt(id=uuid.uuid4(),
+                           category_id=first_id,
+                           text='super prompt 2 {2}',
+                           order_index='1'))
+        session.add(Prompt(id=uuid.uuid4(),
+                           category_id=second_id,
+                           text='super prompt 3 {2}',
+                           order_index='0'))
+        session.add(Prompt(id=uuid.uuid4(),
+                           category_id=second_id,
+                           text='super prompt 4 {1}',
+                           order_index='1'))
     yield first_id, second_id
     async with async_session_maker_test.begin() as session:
         await session.execute(delete(Category))
@@ -115,21 +147,25 @@ async def questions_in_db(categories_in_db, user_in_db):
         session.add(Question(id=first_question_id,
                              question_text='super-question-test-text-1',
                              is_required=True,
-                             category_id=categories_in_db[0]))
+                             category_id=categories_in_db[0],
+                             order_index='0'))
         session.add(Question(id=second_question_id,
                              question_text='super-question-test-text-2',
                              is_required=False,
                              category_id=categories_in_db[0],
-                             snippet='super-test-snippet-2'))
+                             snippet='super-test-snippet-2',
+                             order_index='1'))
         session.add(Question(id=third_question_id,
                              question_text='super-question-test-text-3',
                              is_required=True,
                              category_id=categories_in_db[0],
-                             snippet='super-test-snippet-3'))
+                             snippet='super-test-snippet-3',
+                             order_index='2'))
         session.add(Question(id=fourth_question_id,
                              question_text='super-question-test-text-4',
                              is_required=True,
-                             category_id=categories_in_db[1]))
+                             category_id=categories_in_db[1],
+                             order_index='0'))
         await session.flush()
         session.add(Answer(id=uuid.uuid4(),
                            question_id=first_question_id,
@@ -146,4 +182,3 @@ async def questions_in_db(categories_in_db, user_in_db):
     async with async_session_maker_test.begin() as session:
         await session.execute(delete(Question))
         await session.execute(delete(Answer))
-
