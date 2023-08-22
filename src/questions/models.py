@@ -30,6 +30,19 @@ class Category(Base):
     is_category_screen_presented = Column(BOOLEAN, nullable=False, default=False)
     order_index = Column(String, nullable=False, unique=True)
 
+class Prompt(Base):
+    __tablename__ = 'prompt'
+    def __init__(self, id: uuid.UUID, category_id: uuid.UUID, text: str, order_index: str):
+        self.id = id
+        self.category_id = category_id
+        self.text = text
+        self.order_index = order_index
+
+    id = Column(UUID, primary_key=True)
+    category_id = Column(ForeignKey('question_category.id', ondelete='cascade'))
+    text = Column(String, nullable=False)
+    order_index = Column(String, nullable=False)
+
 class Question(Base):
     __tablename__ = 'question'
     def __init__(self,
@@ -37,18 +50,21 @@ class Question(Base):
                  question_text: str,
                  is_required: bool,
                  category_id: uuid.UUID,
+                 order_index: str,
                  snippet: str=None):
         self.id = id
         self.question_text = question_text
         self.is_required = is_required
         self.category_id = category_id
         self.snippet = snippet
+        self.order_index = order_index
 
     id = Column(UUID, primary_key=True)
     question_text = Column(String, nullable=False)
     snippet = Column(String)
     is_required = Column(BOOLEAN, nullable=False)
     category_id = Column(ForeignKey('question_category.id', ondelete='cascade'), nullable=False)
+    order_index = Column(String, nullable=False)
 
 class Answer(Base):
     __tablename__ = 'answer'

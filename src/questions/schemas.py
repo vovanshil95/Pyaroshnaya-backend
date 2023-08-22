@@ -30,6 +30,9 @@ class Question(BaseModel):
 class QuestionsResponse(BaseResponse):
     questions: list[Question]
 
+class GptAnswerResponse(QuestionsResponse):
+    gptResponse: str
+
 class CategoryId(BaseModel):
     categoryId: uuid.UUID
 

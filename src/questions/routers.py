@@ -1,16 +1,18 @@
 import uuid
 from datetime import datetime
+from typing import Callable
 
+import openai
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select, func, and_, update, or_, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from auth.routes import get_access_token
 from auth.utils import AccessTokenPayload
-from questions.models import Category as CategoryModel, Option
+from questions.models import Category as CategoryModel, Option, Prompt
 from questions.models import Answer as AnswerModel
 from questions.models import Question as QuestionModel
-from questions.schemas import Question as QuestionSchema
+from questions.schemas import Question as QuestionSchema, GptAnswerResponse
 from questions.schemas import Category as CategorySchema
 from questions.schemas import Answer as AnswerSchema
 from questions.schemas import CategoriesResponse, QuestionsResponse, CategoryId
@@ -23,8 +25,23 @@ router = APIRouter(prefix='/question',
 
 QuestionsData = list[tuple[QuestionModel, list[str], list[str], list[uuid.UUID]]]
 
-def get_gpt_response(questions: list[QuestionSchema]) -> str:
-    return 'this is just test response not from gpt'
+def get_gpt_send():
+    def get_gpt_response(answers: list[str], prompt: list[str]) -> str:
+
+        answers = list(map(lambda ans: '' if ans is None else ans, answers))
+
+        answers.insert(0, None)
+
+        filled_prompt = '\n'.join(prompt).format(*answers)
+
+        response = openai.ChatCompletion.create(model='gpt-4',
+                                                messages=[{'role': 'user', 'content': filled_prompt}])
+        response = response['choices'][0]['message']['content']
+        print(filled_prompt)
+
+        return response
+
+    return get_gpt_response
 
 async def get_question_data(user_id: uuid.UUID, session: AsyncSession, category_id: uuid.UUID) -> QuestionsData:
     questions = (await session.execute(select(QuestionModel,
@@ -34,9 +51,11 @@ async def get_question_data(user_id: uuid.UUID, session: AsyncSession, category_
                                        .join(AnswerModel, isouter=True)
                                        .join(Option, isouter=True)
                                        .where(and_(QuestionModel.category_id==category_id,
+                                                   AnswerModel.interaction_id.is_(None),
                                                    or_(AnswerModel.user_id==user_id,
                                                        AnswerModel.id.is_(None))))
-                                       .group_by(QuestionModel.id))).all()
+                                       .group_by(QuestionModel.id)
+                                       .order_by(QuestionModel.order_index))).all()
     questions = list(map(lambda q: (q[0],
                                     list(filter(lambda ans: ans is not None, q[1])),
                                     list(filter(lambda opt: opt is not None, q[2])),
@@ -58,8 +77,10 @@ def get_question_schemas(questions: QuestionsData) -> list[QuestionSchema]:
                                    if len(question_data[1]) > 1 else None), questions))
 
 
-@router.get('/categories', responses={200: {'model': CategoriesResponse},
-                                           400: {'model': BaseResponse}})
+@router.get('/categories',
+            dependencies=[Depends(get_access_token)],
+            responses={200: {'model': CategoriesResponse},
+                       400: {'model': BaseResponse}})
 async def get_categories(session: AsyncSession = Depends(get_async_session)) -> CategoriesResponse:
     return CategoriesResponse(message='status success',
                               categories=list(map(lambda category_model:
@@ -86,18 +107,26 @@ async def get_questions(categoryId: uuid.UUID,
                                                                                     session,
                                                                                     categoryId)))
 
-@router.post('/response', responses={200: {'model': QuestionsResponse},
+@router.post('/response', responses={200: {'model': GptAnswerResponse},
                                           400: {'model': BaseResponse, 'description': 'required fields not filled'},
                                           401: {'model': BaseResponse, 'description': 'User is not authorized'}})
 async def gpt_response(category: CategoryId,
                        user_token: AccessTokenPayload=Depends(get_access_token),
-                       session: AsyncSession=Depends(get_async_session)) -> list[QuestionSchema]:
+                       session: AsyncSession=Depends(get_async_session),
+                       gpt_send: Callable=Depends(get_gpt_send)) -> GptAnswerResponse:
     questions_data = await get_question_data(user_token.id, session, category.categoryId)
     questions = get_question_schemas(questions_data)
     for question in questions:
         if question.isRequired and not question.answers and not question.answer:
             raise HTTPException(status_code=400, detail='required fields not filled')
-    response = get_gpt_response(questions)
+
+    prompt = (await session.execute(select(Prompt.text)
+                                    .where(Prompt.category_id == category.categoryId)
+                                    .order_by(Prompt.order_index))).scalars().all()
+
+    answers = list(map(lambda q: q.answer, questions))
+
+    response = gpt_send(answers, prompt)
 
     interaction_id = uuid.uuid4()
     answer_ids = []
@@ -112,7 +141,9 @@ async def gpt_response(category: CategoryId,
     await session.flush()
     await session.execute(update(AnswerModel).where(AnswerModel.id.in_(answer_ids)).values(interaction_id=interaction_id))
 
-    return questions
+    return GptAnswerResponse(message='status success',
+                             questions=questions,
+                             gptResponse=response)
 
 @router.post('/questions', responses={200: {'model': QuestionsResponse},
                                            401: {'model': BaseResponse, 'description': 'User is not authorized'},

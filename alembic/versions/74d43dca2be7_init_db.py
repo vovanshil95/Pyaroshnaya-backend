@@ -1,8 +1,8 @@
 """init db
 
-Revision ID: 6374c17df5c9
+Revision ID: 74d43dca2be7
 Revises: 
-Create Date: 2023-08-18 18:27:47.167571
+Create Date: 2023-08-22 21:07:40.799860
 
 """
 from alembic import op
@@ -10,7 +10,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision = '6374c17df5c9'
+revision = '74d43dca2be7'
 down_revision = None
 branch_labels = None
 depends_on = None
@@ -56,12 +56,21 @@ def upgrade() -> None:
     sa.ForeignKeyConstraint(['user_id'], ['users.id'], ondelete='cascade'),
     sa.PrimaryKeyConstraint('id')
     )
+    op.create_table('prompt',
+    sa.Column('id', sa.UUID(), nullable=False),
+    sa.Column('category_id', sa.UUID(), nullable=True),
+    sa.Column('text', sa.String(), nullable=False),
+    sa.Column('order_index', sa.String(), nullable=False),
+    sa.ForeignKeyConstraint(['category_id'], ['question_category.id'], ondelete='cascade'),
+    sa.PrimaryKeyConstraint('id')
+    )
     op.create_table('question',
     sa.Column('id', sa.UUID(), nullable=False),
     sa.Column('question_text', sa.String(), nullable=False),
     sa.Column('snippet', sa.String(), nullable=True),
     sa.Column('is_required', sa.BOOLEAN(), nullable=False),
     sa.Column('category_id', sa.UUID(), nullable=False),
+    sa.Column('order_index', sa.String(), nullable=False),
     sa.ForeignKeyConstraint(['category_id'], ['question_category.id'], ondelete='cascade'),
     sa.PrimaryKeyConstraint('id')
     )
@@ -111,6 +120,7 @@ def downgrade() -> None:
     op.drop_table('sms_send')
     op.drop_table('refresh_token')
     op.drop_table('question')
+    op.drop_table('prompt')
     op.drop_table('auth')
     op.drop_table('users')
     op.drop_table('question_category')

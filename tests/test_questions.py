@@ -7,8 +7,11 @@ from conftest import AsyncClient, async_session_maker_test, categories_in_db, qu
 from questions.models import Question
 
 async def test_get_categories(ac: AsyncClient,
-                              categories_in_db):
-    response = await ac.get('/question/categories')
+                              categories_in_db,
+                              user_in_db,
+                              authorisation):
+    response = await ac.get('/question/categories',
+                            headers={'Authorization': authorisation})
     assert response.status_code == 200
     assert len(response.json()['categories']) == 2
     assert response.json()['categories'][0]['title']  == 'super-test-category-1'
@@ -50,8 +53,8 @@ async def test_gpt_response(ac: AsyncClient,
 
     assert response.status_code == status_code
     if status_code == 200:
-        assert len(response.json()) == 3
-        question_texts = set(map(lambda q: q['question'], response.json()))
+        assert len(response.json()['questions']) == 3
+        question_texts = set(map(lambda q: q['question'], response.json()['questions']))
         assert question_texts == {'super-question-test-text-1', 'super-question-test-text-2', 'super-question-test-text-3'}
 
 @pytest.mark.parametrize('question_index, random_id, answer, answers, status_code',

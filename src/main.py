@@ -1,3 +1,4 @@
+import openai
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.openapi.utils import get_openapi
@@ -8,6 +9,7 @@ from history.routers import router as history_router
 from users.routers import router as users_router
 from config import ORIGINS
 from error_handlers import http_exception_handler
+from config import OPENAI_API_KEY
 
 app = FastAPI()
 
@@ -43,3 +45,5 @@ def custom_openapi():
     return app.openapi_schema
 
 app.openapi = custom_openapi
+
+openai.api_key = OPENAI_API_KEY
