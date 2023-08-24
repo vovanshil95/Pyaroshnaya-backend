@@ -15,6 +15,7 @@ from questions.models import Question as QuestionModel
 from questions.schemas import Question as QuestionSchema, GptAnswerResponse
 from questions.schemas import Category as CategorySchema
 from questions.schemas import Answer as AnswerSchema
+from questions.schemas import Option as OptionSchema
 from questions.schemas import CategoriesResponse, QuestionsResponse, CategoryId
 from history.models import GptInteraction
 from database import get_async_session
@@ -26,18 +27,48 @@ router = APIRouter(prefix='/question',
 QuestionsData = list[tuple[QuestionModel, list[str], list[str], list[uuid.UUID]]]
 
 def get_gpt_send():
-    def get_gpt_response(answers: list[str], prompt: list[str]) -> str:
+    async def get_gpt_response(questions: list[QuestionSchema],
+                         prompt: list[str],
+                         session: AsyncSession) -> str:
 
-        answers = list(map(lambda ans: '' if ans is None else ans, answers))
+        option_ids = []
+
+        for question in questions:
+            if question.answer is None:
+                continue
+            if question.questionType == 'options':
+                try:
+                    uuid.UUID(hex=question.answer)
+                except ValueError:
+                    raise HTTPException(status_code=422, detail='optional questions must have uuid in answer')
+                option_ids.append(question.answer)
+            if question.questionType == 'numeric':
+                if not question.answer.isnumeric():
+                    raise HTTPException(status_code=422, detail='answers to questions with numeric type must be numeric')
+
+        if option_ids != []:
+            options = (await session.execute(select(Option).where(Option.id.in_(option_ids)))).scalars().all()
+            options_dict = {}
+            for option in options:
+                options_dict[option.id] = option.text_to_prompt
+        answers = ['' if question.answer is None
+                   else options_dict[uuid.UUID(hex=question.answer)]
+                   if question.questionType == 'options'
+                   else question.answer
+                   for question in questions]
 
         answers.insert(0, None)
 
         filled_prompt = '\n'.join(prompt).format(*answers)
+        print(len(answers))
+        print(prompt)
+        response = filled_prompt
+        raise HTTPException(status_code=422)
 
-        response = openai.ChatCompletion.create(model='gpt-4',
-                                                messages=[{'role': 'user', 'content': filled_prompt}])
-        response = response['choices'][0]['message']['content']
-        print(filled_prompt)
+        # response = openai.ChatCompletion.create(model='gpt-4',
+        #                                         messages=[{'role': 'user', 'content': filled_prompt}])
+        # response = response['choices'][0]['message']['content']
+        # print(filled_prompt)
 
         return response
 
@@ -46,8 +77,9 @@ def get_gpt_send():
 async def get_question_data(user_id: uuid.UUID, session: AsyncSession, category_id: uuid.UUID) -> QuestionsData:
     questions = (await session.execute(select(QuestionModel,
                                               func.array_agg(AnswerModel.text),
-                                              func.array_agg(Option.text),
-                                              func.array_agg(AnswerModel.id))
+                                              func.array_agg(Option.option_text),
+                                              func.array_agg(AnswerModel.id),
+                                              func.array_agg(Option.id))
                                        .join(AnswerModel, isouter=True)
                                        .join(Option, isouter=True)
                                        .where(and_(QuestionModel.category_id==category_id,
@@ -59,7 +91,12 @@ async def get_question_data(user_id: uuid.UUID, session: AsyncSession, category_
     questions = list(map(lambda q: (q[0],
                                     list(filter(lambda ans: ans is not None, q[1])),
                                     list(filter(lambda opt: opt is not None, q[2])),
-                                    list(filter(lambda opt: opt is not None, q[3]))), questions))
+                                    list(filter(lambda opt: opt is not None, q[3])),
+                                    list(filter(lambda opt: opt is not None, q[4]))), questions))
+    questions = list(map(list, questions))
+    for question in questions:
+        if len(question[1]) > 0:
+            question[1], question[3] = map(list, zip(*list(set(list(zip(question[1], question[3]))))))
     return questions
 
 def get_question_schemas(questions: QuestionsData) -> list[QuestionSchema]:
@@ -67,14 +104,15 @@ def get_question_schemas(questions: QuestionsData) -> list[QuestionSchema]:
                     QuestionSchema(id=question_data[0].id,
                                    question=question_data[0].question_text,
                                    snippet=question_data[0].snippet,
-                                   options=question_data[2]
+                                   options=[OptionSchema(id=id, text=text) for id, text in zip(question_data[4], question_data[2])]
                                    if len(question_data[2]) != 0 else None,
                                    isRequired=question_data[0].is_required,
                                    categoryId=question_data[0].category_id,
                                    answer=question_data[1][0]
                                    if len(question_data[1]) == 1 else None,
                                    answers=question_data[1]
-                                   if len(question_data[1]) > 1 else None), questions))
+                                   if len(question_data[1]) > 1 else None,
+                                   questionType=question_data[0].type_), questions))
 
 
 @router.get('/categories',
@@ -124,12 +162,11 @@ async def gpt_response(category: CategoryId,
                                     .where(Prompt.category_id == category.categoryId)
                                     .order_by(Prompt.order_index))).scalars().all()
 
-    answers = list(map(lambda q: q.answer, questions))
-
-    response = gpt_send(answers, prompt)
+    response = await gpt_send(questions, prompt, session)
 
     interaction_id = uuid.uuid4()
     answer_ids = []
+    new_answers = []
 
     session.add(GptInteraction(id=interaction_id,
                                time_happened=datetime.now(),
@@ -137,10 +174,14 @@ async def gpt_response(category: CategoryId,
 
     for question_data in questions_data:
         answer_ids.extend(question_data[3])
+        new_answers.append(AnswerModel(id=uuid.uuid4(),
+                                       question_id=question_data[0].id,
+                                       text='',
+                                       user_id=user_token.id))
 
     await session.flush()
     await session.execute(update(AnswerModel).where(AnswerModel.id.in_(answer_ids)).values(interaction_id=interaction_id))
-
+    await session.add(new_answers)
     return GptAnswerResponse(message='status success',
                              questions=questions,
                              gptResponse=response)
@@ -157,10 +198,14 @@ async def answer(answer: AnswerSchema,
     if (question := await session.get(QuestionModel, answer.questionId)) is None:
         raise HTTPException(404, 'Question with this id doesnt exist')
 
-    if (answer.answer is None and answer.answers is None or
-        answer.answer is not None and answer.answers is not None):
-        raise HTTPException(422, 'Validation error answer or answers must be specified')
     if answer.answers is None:
+        if question.type_ == 'numeric' and not answer.answer.isnumeric():
+            raise HTTPException(status_code=422, detail='answers to questions with numeric type must be numeric')
+        if question.type_ == 'options':
+            try:
+                uuid.UUID(hex=answer.answer)
+            except ValueError:
+                raise HTTPException(status_code=422, detail='optional questions must have uuid in answer')
         if (answer_model := (await session.execute(
                 select(AnswerModel)
                 .where(and_(AnswerModel.question_id == answer.questionId,
@@ -179,14 +224,13 @@ async def answer(answer: AnswerSchema,
             AnswerModel.user_id == user_token.id,
             AnswerModel.interaction_id.is_(None)
         )))
-        await session.flush()
         session.add_all(list(map(lambda a:
                                  AnswerModel(id=uuid.uuid4(),
                                              question_id=answer.questionId,
                                              text=a,
                                              user_id=user_token.id),
                                  answer.answers)))
-        await session.flush()
+    await session.flush()
     return QuestionsResponse(message='status success',
                              questions=get_question_schemas(
                                  await get_question_data(user_id=user_token.id,

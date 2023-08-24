@@ -1,8 +1,8 @@
 """init db
 
-Revision ID: 74d43dca2be7
+Revision ID: 153fa34da8dd
 Revises: 
-Create Date: 2023-08-22 21:07:40.799860
+Create Date: 2023-08-24 21:23:40.656029
 
 """
 from alembic import op
@@ -10,7 +10,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision = '74d43dca2be7'
+revision = '153fa34da8dd'
 down_revision = None
 branch_labels = None
 depends_on = None
@@ -71,6 +71,7 @@ def upgrade() -> None:
     sa.Column('is_required', sa.BOOLEAN(), nullable=False),
     sa.Column('category_id', sa.UUID(), nullable=False),
     sa.Column('order_index', sa.String(), nullable=False),
+    sa.Column('type_', sa.String(), nullable=False),
     sa.ForeignKeyConstraint(['category_id'], ['question_category.id'], ondelete='cascade'),
     sa.PrimaryKeyConstraint('id')
     )
@@ -106,7 +107,8 @@ def upgrade() -> None:
     op.create_table('option',
     sa.Column('id', sa.UUID(), nullable=False),
     sa.Column('question_id', sa.UUID(), nullable=False),
-    sa.Column('text', sa.String(), nullable=False),
+    sa.Column('option_text', sa.String(), nullable=False),
+    sa.Column('text_to_prompt', sa.String(), nullable=False),
     sa.ForeignKeyConstraint(['question_id'], ['question.id'], ondelete='cascade'),
     sa.PrimaryKeyConstraint('id')
     )

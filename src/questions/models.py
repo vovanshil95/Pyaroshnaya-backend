@@ -51,6 +51,7 @@ class Question(Base):
                  is_required: bool,
                  category_id: uuid.UUID,
                  order_index: str,
+                 type_: str,
                  snippet: str=None):
         self.id = id
         self.question_text = question_text
@@ -58,6 +59,7 @@ class Question(Base):
         self.category_id = category_id
         self.snippet = snippet
         self.order_index = order_index
+        self.type_ = type_
 
     id = Column(UUID, primary_key=True)
     question_text = Column(String, nullable=False)
@@ -65,6 +67,7 @@ class Question(Base):
     is_required = Column(BOOLEAN, nullable=False)
     category_id = Column(ForeignKey('question_category.id', ondelete='cascade'), nullable=False)
     order_index = Column(String, nullable=False)
+    type_ = Column(String, nullable=False)
 
 class Answer(Base):
     __tablename__ = 'answer'
@@ -87,10 +90,12 @@ class Answer(Base):
 
 class Option(Base):
     __tablename__ = 'option'
-    def __init__(self, id: uuid.UUID, question_id: uuid.UUID, text: str):
+    def __init__(self, id: uuid.UUID, question_id: uuid.UUID, option_text: str, text_to_prompt: str):
         self.id = id
         self.question_id = question_id
-        self.text = text
+        self.option_text = option_text
+        self.text_to_prompt = text_to_prompt
     id = Column(UUID, primary_key=True)
     question_id = Column(ForeignKey('question.id', ondelete='cascade'), nullable=False)
-    text = Column(String, nullable=False)
+    option_text = Column(String, nullable=False)
+    text_to_prompt = Column(String, nullable=False)
