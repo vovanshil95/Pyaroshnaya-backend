@@ -1,6 +1,6 @@
 import uuid
 
-from sqlalchemy import Column, UUID, String, BOOLEAN, ForeignKey
+from sqlalchemy import Column, UUID, String, BOOLEAN, ForeignKey, Integer
 
 from history.models import Base
 
@@ -32,7 +32,7 @@ class Category(Base):
 
 class Prompt(Base):
     __tablename__ = 'prompt'
-    def __init__(self, id: uuid.UUID, category_id: uuid.UUID, text: str, order_index: str):
+    def __init__(self, id: uuid.UUID, category_id: uuid.UUID, text: str, order_index: int):
         self.id = id
         self.category_id = category_id
         self.text = text
@@ -41,7 +41,7 @@ class Prompt(Base):
     id = Column(UUID, primary_key=True)
     category_id = Column(ForeignKey('question_category.id', ondelete='cascade'))
     text = Column(String, nullable=False)
-    order_index = Column(String, nullable=False)
+    order_index = Column(Integer, nullable=False)
 
 class Question(Base):
     __tablename__ = 'question'
@@ -50,7 +50,7 @@ class Question(Base):
                  question_text: str,
                  is_required: bool,
                  category_id: uuid.UUID,
-                 order_index: str,
+                 order_index: int,
                  type_: str,
                  snippet: str=None):
         self.id = id
@@ -66,7 +66,7 @@ class Question(Base):
     snippet = Column(String)
     is_required = Column(BOOLEAN, nullable=False)
     category_id = Column(ForeignKey('question_category.id', ondelete='cascade'), nullable=False)
-    order_index = Column(String, nullable=False)
+    order_index = Column(Integer, nullable=False)
     type_ = Column(String, nullable=False)
 
 class Answer(Base):

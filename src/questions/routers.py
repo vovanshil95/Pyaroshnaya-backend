@@ -60,15 +60,11 @@ def get_gpt_send():
         answers.insert(0, None)
 
         filled_prompt = '\n'.join(prompt).format(*answers)
-        print(len(answers))
-        print(prompt)
-        response = filled_prompt
-        raise HTTPException(status_code=422)
 
-        # response = openai.ChatCompletion.create(model='gpt-4',
-        #                                         messages=[{'role': 'user', 'content': filled_prompt}])
-        # response = response['choices'][0]['message']['content']
-        # print(filled_prompt)
+        response = openai.ChatCompletion.create(model='gpt-4',
+                                                messages=[{'role': 'user', 'content': filled_prompt}])
+        response = response['choices'][0]['message']['content']
+        print(filled_prompt)
 
         return response
 
