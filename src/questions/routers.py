@@ -61,12 +61,11 @@ def get_gpt_send():
 
         filled_prompt = '\n'.join(prompt).format(*answers)
 
-        response = openai.ChatCompletion.create(model='gpt-4',
-                                                messages=[{'role': 'user', 'content': filled_prompt}])
-        response = response['choices'][0]['message']['content']
-        print(filled_prompt)
+        # response = openai.ChatCompletion.create(model='gpt-4',
+        #                                         messages=[{'role': 'user', 'content': filled_prompt}])
+        # response = response['choices'][0]['message']['content']
 
-        return response
+        return filled_prompt
 
     return get_gpt_response
 
@@ -177,7 +176,7 @@ async def gpt_response(category: CategoryId,
 
     await session.flush()
     await session.execute(update(AnswerModel).where(AnswerModel.id.in_(answer_ids)).values(interaction_id=interaction_id))
-    await session.add(new_answers)
+    session.add_all(new_answers)
     return GptAnswerResponse(message='status success',
                              questions=questions,
                              gptResponse=response)

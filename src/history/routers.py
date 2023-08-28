@@ -12,7 +12,8 @@ from history.models import GptInteraction as GptInteractionModel
 from questions.models import Answer, Option
 from questions.models import Question as QuestionModel
 from questions.schemas import Question as QuestionSchema
-from utils import BaseResponse, IdSchema
+from questions.schemas import Option as OptionShema
+from utils import BaseResponse, IdSchema, try_uuid
 
 router = APIRouter(prefix='/history',
                    tags=['History'])
@@ -20,22 +21,22 @@ router = APIRouter(prefix='/history',
 async def get_history(session: AsyncSession, user_id: uuid.UUID) -> HistoryResponse:
     interactions = (await session.execute(
         select(text('id'),
-               text('array_agg(user_id)'),
-               text('array_agg(time_happened)'),
-               text('array_agg(response)'),
-               text('array_agg(is_favorite)'),
+               text('time_happened'),
+               text('response'),
+               text('is_favorite'),
                text('array_agg(id_1)'),
                text('array_agg(question_text)'),
                text('array_agg(snippet)'),
-               text('array_agg(options)'),
+               text('array_agg(option_ids)'),
+               text('array_agg(option_texts)'),
                text('array_agg(question_answers)'),
                text('array_agg(is_required)'),
-               text('array_agg(category_id)'))
+               text('category_id'))
         .select_from(select(GptInteractionModel,
                             QuestionModel,
-                            func.array_agg(Answer.text).label('question_answers'),
-                            func.array_agg(Answer.user_id).label('user_id'),
-                            func.array_agg(Option.text).label('options'))
+                            func.string_agg(Answer.text.distinct(), 'DEL').label('question_answers'),
+                            func.string_agg(text('option.id::text'), 'DEL').label('option_ids'),
+                            func.string_agg(Option.option_text.distinct(), 'DEL').label('option_texts'))
                      .join(Answer)
                      .join(QuestionModel)
                      .join(Option, isouter=True)
@@ -44,25 +45,33 @@ async def get_history(session: AsyncSession, user_id: uuid.UUID) -> HistoryRespo
                      .group_by(GptInteractionModel.id)
                      .select_from(GptInteractionModel)
                      .subquery(name='interaction'))
-        .group_by(text('(interaction.id)')))).all()
+        .group_by(text('(interaction.id)'))
+        .group_by(text('interaction.time_happened'))
+        .group_by(text('interaction.response'))
+        .group_by(text('interaction.is_favorite'))
+        .group_by(text('interaction.category_id')))).all()
 
     interactions = list(map(lambda interaction:
                             GptInteractionSchema(id=interaction[0],
-                                                 userId=interaction[1][0][0],
-                                                 dateTime=interaction[2][0],
-                                                 gptResponse=interaction[3][0],
-                                                 isFavorite=interaction[4][0],
+                                                 userId=user_id,
+                                                 dateTime=interaction[1],
+                                                 gptResponse=interaction[2],
+                                                 isFavorite=interaction[3],
                                                  questions=[QuestionSchema(
                                                      id=id,
-                                                     question=interaction[6][i],
-                                                     snippet=interaction[7][i],
-                                                     options=interaction[8][i] if interaction[8][i] != [None] else None,
-                                                     answer=interaction[9][i][0] if len(
-                                                         interaction[9][i]) == 1 else None,
-                                                     answers=interaction[9][i] if len(interaction[9][i]) > 1 else None,
+                                                     question=interaction[5][i],
+                                                     snippet=interaction[6][i],
+                                                     options=[OptionShema(id=uuid.UUID(hex=id),text=text)
+                                                              for id, text in zip(interaction[7][i].split('DEL'),
+                                                                                  interaction[8][i].split('DEL'))]
+                                                     if interaction[7][i] is not None else None,
+                                                     answer=try_uuid(interaction[9][i][0])
+                                                     if len(interaction[9][i].split('DEL')) == 1 else None,
+                                                     answers=list(map(try_uuid, interaction[8][i].split('DEL')))
+                                                     if len(interaction[9][i].split('DEL')) > 1 else None,
                                                      isRequired=interaction[10][i],
-                                                     categoryId=interaction[11][i]
-                                                 ) for i, id in enumerate(interaction[5])]), interactions))
+                                                     categoryId=interaction[11]
+                                                 ) for i, id in enumerate(interaction[4])]), interactions))
 
     return HistoryResponse(message='status success', data=interactions)
 
