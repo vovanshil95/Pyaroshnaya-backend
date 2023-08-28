@@ -61,11 +61,11 @@ def get_gpt_send():
 
         filled_prompt = '\n'.join(prompt).format(*answers)
 
-        # response = openai.ChatCompletion.create(model='gpt-4',
-        #                                         messages=[{'role': 'user', 'content': filled_prompt}])
-        # response = response['choices'][0]['message']['content']
+        response = openai.ChatCompletion.create(model='gpt-4',
+                                                messages=[{'role': 'user', 'content': filled_prompt}])
+        response = response['choices'][0]['message']['content']
 
-        return filled_prompt
+        return response
 
     return get_gpt_response
 
