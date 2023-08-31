@@ -19,7 +19,7 @@ def send_welcome(message):
 def messageAnswer(message):
 	if message.text == CONSTS.GET_LOGIN_PASSWORD_TEXT:
 		answer = get_login_password(message.chat.id)
-		bot.reply_to(message, answer)
+		bot.reply_to(message, f'{answer}\n{CONSTS.REDIRECT_TEXT}')
 	else:
 		bot.reply_to(message, CONSTS.MSG_WELLCOME_TEXT, reply_markup=KEYBOARD.wellcome_keyboard)
 
