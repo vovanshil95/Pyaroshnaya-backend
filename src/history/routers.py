@@ -18,9 +18,9 @@ from utils import BaseResponse, IdSchema, try_uuid
 router = APIRouter(prefix='/history',
                    tags=['History'])
 
-async def get_history(session: AsyncSession, user_id: uuid.UUID) -> HistoryResponse:
+async def get_history(session: AsyncSession, user_id: uuid.UUID, category_id: uuid.UUID) -> HistoryResponse:
     interactions = (await session.execute(
-        select(text('id'),
+        a:=select(text('id'),
                text('time_happened'),
                text('response'),
                text('is_favorite'),
@@ -45,6 +45,7 @@ async def get_history(session: AsyncSession, user_id: uuid.UUID) -> HistoryRespo
                      .group_by(GptInteractionModel.id)
                      .select_from(GptInteractionModel)
                      .subquery(name='interaction'))
+        .where(text(f"interaction.category_id = '{category_id}'"))
         .group_by(text('(interaction.id)'))
         .group_by(text('interaction.time_happened'))
         .group_by(text('interaction.response'))
@@ -94,9 +95,10 @@ async def switch_favorite(session: AsyncSession,
                                            400: {'model': BaseResponse, 'description': 'error: User-Agent required'},
                                            401: {'model': BaseResponse, 'description': 'user is not authorized'},
                                            498: {'model': BaseResponse, 'description': 'the access token is invalid'}})
-async def get_history_route(user_token: AccessTokenPayload=Depends(get_access_token),
-                      session: AsyncSession=Depends(get_async_session)) -> HistoryResponse:
-    return await get_history(session=session, user_id=user_token.id)
+async def get_history_route(categoryId: uuid.UUID,
+                            user_token: AccessTokenPayload=Depends(get_access_token),
+                            session: AsyncSession=Depends(get_async_session)) -> HistoryResponse:
+    return await get_history(session=session, user_id=user_token.id, category_id=categoryId)
 @router.post('/gptHistoryFavorite', responses={200: {'model': HistoryResponse},
                                                     300: {'model': BaseResponse, 'description': 'user is blocked'},
                                                     400: {'model': BaseResponse, 'description': 'error: User-Agent required'},
