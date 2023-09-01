@@ -141,8 +141,8 @@ async def get_questions(categoryId: uuid.UUID,
                                                                                     categoryId)))
 
 @router.post('/response', responses={200: {'model': GptAnswerResponse},
-                                          400: {'model': BaseResponse, 'description': 'required fields not filled'},
-                                          401: {'model': BaseResponse, 'description': 'User is not authorized'}})
+                                           400: {'model': BaseResponse, 'description': 'required fields not filled'},
+                                           401: {'model': BaseResponse, 'description': 'User is not authorized'}})
 async def gpt_response(category: CategoryId,
                        user_token: AccessTokenPayload=Depends(get_access_token),
                        session: AsyncSession=Depends(get_async_session),
@@ -169,10 +169,11 @@ async def gpt_response(category: CategoryId,
 
     for question_data in questions_data:
         answer_ids.extend(question_data[3])
-        new_answers.append(AnswerModel(id=uuid.uuid4(),
-                                       question_id=question_data[0].id,
-                                       text='',
-                                       user_id=user_token.id))
+        for ans_text in question_data[1]:
+            new_answers.append(AnswerModel(id=uuid.uuid4(),
+                                           question_id=question_data[0].id,
+                                           text=ans_text,
+                                           user_id=user_token.id))
 
     await session.flush()
     await session.execute(update(AnswerModel).where(AnswerModel.id.in_(answer_ids)).values(interaction_id=interaction_id))
