@@ -7,12 +7,12 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select, func, and_, update, or_, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from auth.routes import get_access_token
+from auth.routes import get_access_token, get_admin_token
 from auth.utils import AccessTokenPayload
 from questions.models import Category as CategoryModel, Option, Prompt
 from questions.models import Answer as AnswerModel
 from questions.models import Question as QuestionModel
-from questions.schemas import Question as QuestionSchema, GptAnswerResponse
+from questions.schemas import Question as QuestionSchema, GptAnswerResponse, PromptResponse
 from questions.schemas import Category as CategorySchema
 from questions.schemas import Answer as AnswerSchema
 from questions.schemas import Option as OptionSchema
@@ -26,40 +26,50 @@ router = APIRouter(prefix='/question',
 
 QuestionsData = list[tuple[QuestionModel, list[str], list[str], list[uuid.UUID]]]
 
+async def get_filled_prompt(questions: list[QuestionSchema],
+                            prompt: list[str],
+                            session: AsyncSession) -> str:
+    option_ids = []
+
+    for question in questions:
+        if question.answer is None:
+            continue
+        if question.questionType == 'options':
+            try:
+                uuid.UUID(hex=question.answer)
+            except ValueError:
+                raise HTTPException(status_code=422, detail='optional questions must have uuid in answer')
+            option_ids.append(question.answer)
+        if question.questionType == 'numeric':
+            if not question.answer.isnumeric():
+                raise HTTPException(status_code=422, detail='answers to questions with numeric type must be numeric')
+
+    if option_ids != []:
+        options = (await session.execute(select(Option).where(Option.id.in_(option_ids)))).scalars().all()
+        options_dict = {}
+        for option in options:
+            options_dict[option.id] = option.text_to_prompt
+    answers = ['' if question.answer is None
+               else options_dict[uuid.UUID(hex=question.answer)]
+    if question.questionType == 'options'
+    else question.answer
+               for question in questions]
+
+    answers.insert(0, None)
+
+    filled_prompt = '\n'.join(prompt).format(*answers)
+
+    return filled_prompt
+
+async def filled_prompt_generator():
+    return get_filled_prompt
+
 def get_gpt_send():
     async def get_gpt_response(questions: list[QuestionSchema],
-                         prompt: list[str],
-                         session: AsyncSession) -> str:
+                               prompt: list[str],
+                               session: AsyncSession) -> str:
 
-        option_ids = []
-
-        for question in questions:
-            if question.answer is None:
-                continue
-            if question.questionType == 'options':
-                try:
-                    uuid.UUID(hex=question.answer)
-                except ValueError:
-                    raise HTTPException(status_code=422, detail='optional questions must have uuid in answer')
-                option_ids.append(question.answer)
-            if question.questionType == 'numeric':
-                if not question.answer.isnumeric():
-                    raise HTTPException(status_code=422, detail='answers to questions with numeric type must be numeric')
-
-        if option_ids != []:
-            options = (await session.execute(select(Option).where(Option.id.in_(option_ids)))).scalars().all()
-            options_dict = {}
-            for option in options:
-                options_dict[option.id] = option.text_to_prompt
-        answers = ['' if question.answer is None
-                   else options_dict[uuid.UUID(hex=question.answer)]
-                   if question.questionType == 'options'
-                   else question.answer
-                   for question in questions]
-
-        answers.insert(0, None)
-
-        filled_prompt = '\n'.join(prompt).format(*answers)
+        filled_prompt = get_filled_prompt(questions, prompt, session)
 
         response = openai.ChatCompletion.create(model='gpt-4',
                                                 messages=[{'role': 'user', 'content': filled_prompt}])
@@ -164,7 +174,7 @@ async def gpt_response(category: CategoryId,
     new_answers = []
 
     session.add(GptInteraction(id=interaction_id,
-                               time_happened=datetime.now(),
+                               time_happened=(interaction_time:=datetime.now()),
                                response=response))
 
     for question_data in questions_data:
@@ -178,9 +188,31 @@ async def gpt_response(category: CategoryId,
     await session.flush()
     await session.execute(update(AnswerModel).where(AnswerModel.id.in_(answer_ids)).values(interaction_id=interaction_id))
     session.add_all(new_answers)
-    return GptAnswerResponse(message='status success',
+    return GptAnswerResponse(answerId=interaction_id,
+                             dateTime=interaction_time,
+                             message='status success',
                              questions=questions,
                              gptResponse=response)
+
+@router.post('/prompt')
+async def get_prompt(category: CategoryId,
+                     user_token: AccessTokenPayload=Depends(get_admin_token),
+                     session: AsyncSession=Depends(get_async_session),
+                     get_filled_prompt: Callable=Depends(filled_prompt_generator)):
+    questions_data = await get_question_data(user_token.id, session, category.categoryId)
+    questions = get_question_schemas(questions_data)
+    for question in questions:
+        if question.isRequired and not question.answers and not question.answer:
+            raise HTTPException(status_code=400, detail='required fields not filled')
+
+    prompt = (await session.execute(select(Prompt.text)
+                                    .where(Prompt.category_id == category.categoryId)
+                                    .order_by(Prompt.order_index))).scalars().all()
+
+    filled_prompt = await get_filled_prompt(questions, prompt, session)
+
+    return PromptResponse(message='status success', questions=questions, filledPrompt=filled_prompt)
+
 
 @router.post('/questions', responses={200: {'model': QuestionsResponse},
                                            401: {'model': BaseResponse, 'description': 'User is not authorized'},

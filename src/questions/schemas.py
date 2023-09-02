@@ -1,3 +1,4 @@
+import datetime
 import uuid
 
 from pydantic import BaseModel
@@ -36,7 +37,13 @@ class QuestionsResponse(BaseResponse):
     questions: list[Question]
 
 class GptAnswerResponse(QuestionsResponse):
+    answerId: uuid.UUID
+    dateTime: datetime.datetime
     gptResponse: str
+
+class PromptResponse(BaseResponse):
+    questions: list[Question]
+    filledPrompt: str
 
 class CategoryId(BaseModel):
     categoryId: uuid.UUID

@@ -45,6 +45,11 @@ async def get_access_token(Authorization: str = Header(...)) -> AccessTokenPaylo
 
     return user_token
 
+async def get_admin_token(user_token: AccessTokenPayload=Depends(get_access_token)) -> AccessTokenPayload:
+    if user_token.role != 'admin':
+        raise HTTPException(status_code=403, detail='User has to be admin')
+    return user_token
+
 async def get_refresh_token(Authorization: str = Header(...),
                             session: AsyncSession=Depends(get_async_session),
                             user_agent: str=Depends(check_user_agent)) -> RefreshToken:
