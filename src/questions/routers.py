@@ -93,9 +93,9 @@ async def get_question_data(user_id: uuid.UUID, session: AsyncSession, category_
                                        .group_by(QuestionModel.id)
                                        .order_by(QuestionModel.order_index))).all()
     questions = list(map(lambda q: (q[0],
-                                    q[1],
+                                    list(zip(*list(set(list(zip(q[1], q[3]))))))[0] if q[0].type_ == 'options' else q[1],
                                     list(filter(lambda opt: opt is not None, q[2])),
-                                    q[3],
+                                    list(zip(*list(set(list(zip(q[1], q[3]))))))[1] if q[0].type_ == 'options' else q[3],
                                     list(filter(lambda opt: opt is not None, q[4]))), questions))
     return questions
 
