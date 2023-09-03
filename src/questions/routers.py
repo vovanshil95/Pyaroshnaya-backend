@@ -69,7 +69,7 @@ def get_gpt_send():
                                prompt: list[str],
                                session: AsyncSession) -> str:
 
-        filled_prompt = get_filled_prompt(questions, prompt, session)
+        filled_prompt = await get_filled_prompt(questions, prompt, session)
 
         response = openai.ChatCompletion.create(model='gpt-4',
                                                 messages=[{'role': 'user', 'content': filled_prompt}])
@@ -85,23 +85,18 @@ async def get_question_data(user_id: uuid.UUID, session: AsyncSession, category_
                                               func.array_agg(Option.option_text),
                                               func.array_agg(AnswerModel.id),
                                               func.array_agg(Option.id))
-                                       .join(AnswerModel, isouter=True)
+                                       .join(AnswerModel)
                                        .join(Option, isouter=True)
                                        .where(and_(QuestionModel.category_id==category_id,
                                                    AnswerModel.interaction_id.is_(None),
-                                                   or_(AnswerModel.user_id==user_id,
-                                                       AnswerModel.id.is_(None))))
+                                                   AnswerModel.user_id == user_id))
                                        .group_by(QuestionModel.id)
                                        .order_by(QuestionModel.order_index))).all()
     questions = list(map(lambda q: (q[0],
-                                    list(filter(lambda ans: ans is not None, q[1])),
+                                    q[1],
                                     list(filter(lambda opt: opt is not None, q[2])),
-                                    list(filter(lambda opt: opt is not None, q[3])),
+                                    q[3],
                                     list(filter(lambda opt: opt is not None, q[4]))), questions))
-    questions = list(map(list, questions))
-    for question in questions:
-        if len(question[1]) > 0:
-            question[1], question[3] = map(list, zip(*list(set(list(zip(question[1], question[3]))))))
     return questions
 
 def get_question_schemas(questions: QuestionsData) -> list[QuestionSchema]:

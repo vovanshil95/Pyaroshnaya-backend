@@ -10,6 +10,7 @@ from auth.models import Auth, RefreshToken
 from auth.utils import encrypt
 from database import async_session_maker
 from users.models import User
+from questions.models import Question, Answer
 
 loop = asyncio.new_event_loop()
 
@@ -28,6 +29,14 @@ async def add_user(chat_id: int):
             session.add(Auth(id=uuid.uuid4(),
                              user_id=user_id,
                              password=encrypt(password)))
+
+            questions = (await session.execute(select(Question))).scalars().all()
+            session.add_all([Answer(id=uuid.uuid4(),
+                                    question_id=question.id,
+                                    user_id=user_id,
+                                    text=None,
+                                    interaction_id=None) for question in questions])
+
         else:
             name = user.name
             await session.execute(update(Auth).where(Auth.user_id == user.id).values(password=encrypt(password)))

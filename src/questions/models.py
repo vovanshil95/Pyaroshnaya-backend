@@ -74,8 +74,8 @@ class Answer(Base):
     def __init__(self,
                  id: uuid.UUID,
                  question_id: uuid.UUID,
-                 text: str,
                  user_id: uuid.UUID,
+                 text: str=None,
                  interaction_id: uuid.UUID=None):
         self.id = id
         self.question_id = question_id
@@ -86,7 +86,7 @@ class Answer(Base):
     question_id = Column(ForeignKey('question.id', ondelete='cascade'), nullable=False)
     user_id = Column(ForeignKey('users.id', ondelete='cascade'), nullable=False)
     interaction_id = Column(ForeignKey('gpt_interaction.id', ondelete='cascade'))
-    text = Column(String, nullable=False)
+    text = Column(String)
 
 class Option(Base):
     __tablename__ = 'option'
