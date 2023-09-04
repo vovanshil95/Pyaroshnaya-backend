@@ -20,7 +20,7 @@ router = APIRouter(prefix='/history',
 
 async def get_history(session: AsyncSession, user_id: uuid.UUID, category_id: uuid.UUID) -> HistoryResponse:
     interactions = (await session.execute(
-        a:=select(text('id'),
+        select(text('id'),
                text('time_happened'),
                text('response'),
                text('is_favorite'),
@@ -68,7 +68,7 @@ async def get_history(session: AsyncSession, user_id: uuid.UUID, category_id: uu
                                                      if interaction[7][i] is not None else None,
                                                      answer=try_uuid(interaction[9][i][0])
                                                      if len(interaction[9][i].split('DEL')) == 1 else None,
-                                                     answers=list(map(try_uuid, interaction[8][i].split('DEL')))
+                                                     answers=list(map(try_uuid, interaction[9][i].split('DEL')))
                                                      if len(interaction[9][i].split('DEL')) > 1 else None,
                                                      isRequired=interaction[10][i],
                                                      categoryId=interaction[11]
