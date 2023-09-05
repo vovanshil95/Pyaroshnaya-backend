@@ -15,3 +15,8 @@ jobs:
           sshpass -p ${{ secrets.SERVER_PASS }} ssh -o StrictHostKeyChecking=no ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_IP }} -p ${{ secrets.SERVER_PORT }} << EOF
           cd Pyaroshnaya-backend
           git pull
+          source venv/bin/activate
+          alembic upgrade head
+          cd src/
+          pgrep uvicorn | xargs kill
+          nohup uvicorn main:app --host 0.0.0.0 --port 7999 &
