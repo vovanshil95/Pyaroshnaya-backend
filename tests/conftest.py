@@ -167,7 +167,9 @@ async def questions_in_db(categories_in_db, user_in_db):
                                   category_id=categories_in_db[1],
                                   order_index=0,
                                   type_='text'))
+
         await session.flush()
+
         session.add(Answer(id=uuid.uuid4(),
                            question_id=first_question_id,
                            text='super-answer-1',
@@ -176,6 +178,11 @@ async def questions_in_db(categories_in_db, user_in_db):
                            question_id=third_question_id,
                            text='super-answer-3',
                            user_id=user_in_db))
+        session.add(Answer(id=uuid.uuid4(),
+                           question_id=second_question_id,
+                           text=None,
+                           user_id=user_in_db))
+
     yield categories_in_db, [first_question_id,
                              second_question_id,
                              third_question_id,

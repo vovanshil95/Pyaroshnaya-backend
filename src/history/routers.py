@@ -67,9 +67,11 @@ async def get_history(session: AsyncSession, user_id: uuid.UUID, category_id: uu
                                                                                   interaction[8][i].split('DEL'))]
                                                      if interaction[7][i] is not None else None,
                                                      answer=try_uuid(interaction[9][i])
-                                                     if len(interaction[9][i].split('DEL')) == 1 else None,
+                                                     if interaction[9][i] is not None and
+                                                        len(interaction[9][i].split('DEL')) == 1 else None,
                                                      answers=list(map(try_uuid, interaction[9][i].split('DEL')))
-                                                     if len(interaction[9][i].split('DEL')) > 1 else None,
+                                                     if interaction[9][i] is not None and
+                                                        len(interaction[9][i].split('DEL')) > 1 else None,
                                                      isRequired=interaction[10][i],
                                                      categoryId=interaction[11]
                                                  ) for i, id in enumerate(interaction[4])]), interactions))
@@ -88,7 +90,10 @@ async def switch_favorite(session: AsyncSession,
     session.add(interaction)
     await session.flush()
 
-    return await get_history(session=session, user_id=user_id)
+    categoryId = (await session.execute(select(QuestionModel).join(Answer)
+                                        .where(Answer.interaction_id == interaction_id))).scalars().first().category_id
+
+    return await get_history(session=session, user_id=user_id, category_id=categoryId)
 
 @router.get('/gptHistory', responses={200: {'model': HistoryResponse},
                                            300: {'model': BaseResponse, 'description': 'user is blocked'},
