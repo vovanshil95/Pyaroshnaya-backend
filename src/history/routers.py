@@ -66,7 +66,7 @@ async def get_history(session: AsyncSession, user_id: uuid.UUID, category_id: uu
                                                               for id, text in zip(interaction[7][i].split('DEL'),
                                                                                   interaction[8][i].split('DEL'))]
                                                      if interaction[7][i] is not None else None,
-                                                     answer=try_uuid(interaction[9][i][0])
+                                                     answer=try_uuid(interaction[9][i])
                                                      if len(interaction[9][i].split('DEL')) == 1 else None,
                                                      answers=list(map(try_uuid, interaction[9][i].split('DEL')))
                                                      if len(interaction[9][i].split('DEL')) > 1 else None,

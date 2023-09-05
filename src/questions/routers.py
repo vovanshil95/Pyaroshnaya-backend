@@ -193,7 +193,7 @@ async def gpt_response(category: CategoryId,
 async def get_prompt(category: CategoryId,
                      user_token: AccessTokenPayload=Depends(get_admin_token),
                      session: AsyncSession=Depends(get_async_session),
-                     get_filled_prompt: Callable=Depends(filled_prompt_generator)):
+                     get_filled_prompt: Callable=Depends(filled_prompt_generator)) -> PromptResponse :
     questions_data = await get_question_data(user_token.id, session, category.categoryId)
     questions = get_question_schemas(questions_data)
     for question in questions:
