@@ -1,6 +1,6 @@
 import uuid
 
-from sqlalchemy import Column, UUID, String, BOOLEAN, ForeignKey
+from sqlalchemy import Column, UUID, String, BOOLEAN, ForeignKey, Integer
 
 from history.models import Base
 
@@ -32,7 +32,7 @@ class Category(Base):
 
 class Prompt(Base):
     __tablename__ = 'prompt'
-    def __init__(self, id: uuid.UUID, category_id: uuid.UUID, text: str, order_index: str):
+    def __init__(self, id: uuid.UUID, category_id: uuid.UUID, text: str, order_index: int):
         self.id = id
         self.category_id = category_id
         self.text = text
@@ -41,7 +41,7 @@ class Prompt(Base):
     id = Column(UUID, primary_key=True)
     category_id = Column(ForeignKey('question_category.id', ondelete='cascade'))
     text = Column(String, nullable=False)
-    order_index = Column(String, nullable=False)
+    order_index = Column(Integer, nullable=False)
 
 class Question(Base):
     __tablename__ = 'question'
@@ -50,7 +50,8 @@ class Question(Base):
                  question_text: str,
                  is_required: bool,
                  category_id: uuid.UUID,
-                 order_index: str,
+                 order_index: int,
+                 type_: str,
                  snippet: str=None):
         self.id = id
         self.question_text = question_text
@@ -58,21 +59,23 @@ class Question(Base):
         self.category_id = category_id
         self.snippet = snippet
         self.order_index = order_index
+        self.type_ = type_
 
     id = Column(UUID, primary_key=True)
     question_text = Column(String, nullable=False)
     snippet = Column(String)
     is_required = Column(BOOLEAN, nullable=False)
     category_id = Column(ForeignKey('question_category.id', ondelete='cascade'), nullable=False)
-    order_index = Column(String, nullable=False)
+    order_index = Column(Integer, nullable=False)
+    type_ = Column(String, nullable=False)
 
 class Answer(Base):
     __tablename__ = 'answer'
     def __init__(self,
                  id: uuid.UUID,
                  question_id: uuid.UUID,
-                 text: str,
                  user_id: uuid.UUID,
+                 text: str=None,
                  interaction_id: uuid.UUID=None):
         self.id = id
         self.question_id = question_id
@@ -83,14 +86,16 @@ class Answer(Base):
     question_id = Column(ForeignKey('question.id', ondelete='cascade'), nullable=False)
     user_id = Column(ForeignKey('users.id', ondelete='cascade'), nullable=False)
     interaction_id = Column(ForeignKey('gpt_interaction.id', ondelete='cascade'))
-    text = Column(String, nullable=False)
+    text = Column(String)
 
 class Option(Base):
     __tablename__ = 'option'
-    def __init__(self, id: uuid.UUID, question_id: uuid.UUID, text: str):
+    def __init__(self, id: uuid.UUID, question_id: uuid.UUID, option_text: str, text_to_prompt: str):
         self.id = id
         self.question_id = question_id
-        self.text = text
+        self.option_text = option_text
+        self.text_to_prompt = text_to_prompt
     id = Column(UUID, primary_key=True)
     question_id = Column(ForeignKey('question.id', ondelete='cascade'), nullable=False)
-    text = Column(String, nullable=False)
+    option_text = Column(String, nullable=False)
+    text_to_prompt = Column(String, nullable=False)

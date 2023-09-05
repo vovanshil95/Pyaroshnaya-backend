@@ -8,6 +8,7 @@ import pytest_asyncio as pytest
 from fastapi.testclient import TestClient
 from httpx import AsyncClient
 from sqlalchemy import delete
+from sqlalchemy.ext.asyncio import AsyncSession
 
 sys.path.append(sys.path[0].replace('tests', 'src'))
 
@@ -17,22 +18,18 @@ from config import TEST_DB_HOST, TEST_DB_PORT, TEST_DB_NAME, TEST_DB_USER, TEST_
 from auth.utils import encrypt
 from users.models import User
 from auth.models import Base, Auth, RefreshToken
-from questions.models import Category, Question, Answer, Prompt
-from questions.routers import get_gpt_send
+from questions.models import Category, Answer, Prompt
+from questions.models import Question as QuestionModel
+from questions.routers import get_gpt_send, get_filled_prompt
+from questions.schemas import Question as QuestionSchema
 
 _, test_engine, async_session_maker_test, get_async_session_test =  get_db(TEST_DB_HOST, TEST_DB_PORT, TEST_DB_NAME, TEST_DB_USER, TEST_DB_PASS)
 
 Base.metadata.bind = test_engine
 
 def get_gpt_send_test():
-    def get_gpt_response(answers: list[str], prompt: list[str]) -> str:
-
-        answers = list(map(lambda ans: '' if ans is None else ans, answers))
-
-        answers.insert(0, None)
-
-        filled_prompt = '\n'.join(prompt).format(*answers)
-
+    async def get_gpt_response(questions: list[QuestionSchema], prompt: list[str], session: AsyncSession) -> str:
+        filled_prompt = await get_filled_prompt(questions, prompt, session)
         return f'test response not from gpt to prompt {filled_prompt}'
 
     return get_gpt_response
@@ -120,19 +117,19 @@ async def categories_in_db():
         session.add(Prompt(id=uuid.uuid4(),
                            category_id=first_id,
                            text='super prompt 1 {1}',
-                           order_index='0'))
+                           order_index=0))
         session.add(Prompt(id=uuid.uuid4(),
                            category_id=first_id,
                            text='super prompt 2 {2}',
-                           order_index='1'))
+                           order_index=1))
         session.add(Prompt(id=uuid.uuid4(),
                            category_id=second_id,
                            text='super prompt 3 {2}',
-                           order_index='0'))
+                           order_index=0))
         session.add(Prompt(id=uuid.uuid4(),
                            category_id=second_id,
                            text='super prompt 4 {1}',
-                           order_index='1'))
+                           order_index=1))
     yield first_id, second_id
     async with async_session_maker_test.begin() as session:
         await session.execute(delete(Category))
@@ -144,29 +141,35 @@ async def questions_in_db(categories_in_db, user_in_db):
         second_question_id = uuid.uuid4()
         third_question_id = uuid.uuid4()
         fourth_question_id = uuid.uuid4()
-        session.add(Question(id=first_question_id,
-                             question_text='super-question-test-text-1',
-                             is_required=True,
-                             category_id=categories_in_db[0],
-                             order_index='0'))
-        session.add(Question(id=second_question_id,
-                             question_text='super-question-test-text-2',
-                             is_required=False,
-                             category_id=categories_in_db[0],
-                             snippet='super-test-snippet-2',
-                             order_index='1'))
-        session.add(Question(id=third_question_id,
-                             question_text='super-question-test-text-3',
-                             is_required=True,
-                             category_id=categories_in_db[0],
-                             snippet='super-test-snippet-3',
-                             order_index='2'))
-        session.add(Question(id=fourth_question_id,
-                             question_text='super-question-test-text-4',
-                             is_required=True,
-                             category_id=categories_in_db[1],
-                             order_index='0'))
+        session.add(QuestionModel(id=first_question_id,
+                                  question_text='super-question-test-text-1',
+                                  is_required=True,
+                                  category_id=categories_in_db[0],
+                                  order_index=0,
+                                  type_='text'))
+        session.add(QuestionModel(id=second_question_id,
+                                  question_text='super-question-test-text-2',
+                                  is_required=False,
+                                  category_id=categories_in_db[0],
+                                  snippet='super-test-snippet-2',
+                                  order_index=1,
+                                  type_='text'))
+        session.add(QuestionModel(id=third_question_id,
+                                  question_text='super-question-test-text-3',
+                                  is_required=True,
+                                  category_id=categories_in_db[0],
+                                  snippet='super-test-snippet-3',
+                                  order_index=2,
+                                  type_='text'))
+        session.add(QuestionModel(id=fourth_question_id,
+                                  question_text='super-question-test-text-4',
+                                  is_required=True,
+                                  category_id=categories_in_db[1],
+                                  order_index=0,
+                                  type_='text'))
+
         await session.flush()
+
         session.add(Answer(id=uuid.uuid4(),
                            question_id=first_question_id,
                            text='super-answer-1',
@@ -175,10 +178,15 @@ async def questions_in_db(categories_in_db, user_in_db):
                            question_id=third_question_id,
                            text='super-answer-3',
                            user_id=user_in_db))
+        session.add(Answer(id=uuid.uuid4(),
+                           question_id=second_question_id,
+                           text=None,
+                           user_id=user_in_db))
+
     yield categories_in_db, [first_question_id,
                              second_question_id,
                              third_question_id,
                              fourth_question_id]
     async with async_session_maker_test.begin() as session:
-        await session.execute(delete(Question))
+        await session.execute(delete(QuestionModel))
         await session.execute(delete(Answer))

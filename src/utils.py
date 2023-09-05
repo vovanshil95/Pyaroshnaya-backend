@@ -12,3 +12,10 @@ class BaseResponse(BaseModel):
 
 class IdSchema(BaseModel):
     id: uuid.UUID
+
+def try_uuid(s: str) -> uuid.UUID | str:
+    try:
+        uuid_s = uuid.UUID(hex=s)
+        return uuid_s
+    except ValueError:
+        return s

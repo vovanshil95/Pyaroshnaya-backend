@@ -64,8 +64,7 @@ async def test_gpt_response(ac: AsyncClient,
                           (2, False, 'answer', None, 200),
                           (3, False, 'answer', None, 200),
                           (0, True, 'answer', None, 404),
-                          (0, False, 'answer', ['answer1', 'answer2'], 422),
-                          (0, False, None, None, 422)])
+                          (0, False, None, None, 200)])
 async def test_answer(ac: AsyncClient,
                       questions_in_db,
                       authorisation,
