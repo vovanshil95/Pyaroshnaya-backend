@@ -18,5 +18,7 @@ jobs:
           source venv/bin/activate
           alembic upgrade head
           cd src/
+          pgrep python | xargs kill
+          nohup python bot/main.py &
           pgrep uvicorn | xargs kill
           nohup uvicorn main:app --host 0.0.0.0 --port 7999 &
