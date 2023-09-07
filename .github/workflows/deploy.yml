@@ -22,4 +22,3 @@ jobs:
           nohup python bot/main.py > bot_output.log 2>&1 &
           pgrep uvicorn | xargs kill
           nohup uvicorn main:app --host 0.0.0.0 --port 7999 > output.log 2>&1 &
-          ls
