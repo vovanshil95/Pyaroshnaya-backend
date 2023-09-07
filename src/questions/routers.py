@@ -4,7 +4,7 @@ from typing import Callable
 
 import openai
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import select, func, and_, update, or_, delete
+from sqlalchemy import select, func, and_, update, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from auth.routes import get_access_token, get_admin_token
@@ -79,7 +79,7 @@ def get_gpt_send():
 
     return get_gpt_response
 
-async def get_question_data(user_id: uuid.UUID, session: AsyncSession, category_id: uuid.UUID) -> QuestionsData:
+async def get_question_data(user_id: uuid.UUID, session: AsyncSession, category_id: uuid.UUID | None=None) -> QuestionsData:
     questions = (await session.execute(select(QuestionModel,
                                               func.array_agg(AnswerModel.text),
                                               func.array_agg(Option.option_text),
@@ -87,7 +87,7 @@ async def get_question_data(user_id: uuid.UUID, session: AsyncSession, category_
                                               func.array_agg(Option.id))
                                        .join(AnswerModel)
                                        .join(Option, isouter=True)
-                                       .where(and_(QuestionModel.category_id==category_id,
+                                       .where(and_(QuestionModel.category_id==category_id if category_id is not None else True,
                                                    AnswerModel.interaction_id.is_(None),
                                                    AnswerModel.user_id == user_id))
                                        .group_by(QuestionModel.id)
@@ -137,7 +137,7 @@ async def get_categories(session: AsyncSession = Depends(get_async_session)) -> 
                                           400: {'model': BaseResponse},
                                           401: {'model': BaseResponse, 'description': 'User is not authorized'},
                                           498: {'model': BaseResponse, 'description': 'the access token is invalid'}})
-async def get_questions(categoryId: uuid.UUID,
+async def get_questions(categoryId: uuid.UUID | None=None,
                         user_token: AccessTokenPayload=Depends(get_access_token),
                         session: AsyncSession=Depends(get_async_session)) -> QuestionsResponse:
     return QuestionsResponse(message='status success',
