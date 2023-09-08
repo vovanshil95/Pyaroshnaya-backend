@@ -1,4 +1,5 @@
 import binascii
+import random
 import uuid
 from datetime import datetime, timedelta
 import re
@@ -8,7 +9,7 @@ from fastapi import APIRouter, Depends, HTTPException, Header, Request
 from sqlalchemy import select, and_, delete, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from config import REFRESH_TTL_DAYS, ACCESS_TTL_MINUTES, DEFAULT_PHONE
+from config import REFRESH_TTL_DAYS, ACCESS_TTL_MINUTES, DEFAULT_PHONE, SALT
 from database import get_async_session
 from auth.schemas import Credentials, JwtTokens, UserSign, AccessTokenHeader, \
     RefreshTokenPayload, AccessTokenSchema, Passwords
@@ -16,7 +17,8 @@ from auth.models import Auth, RefreshToken
 from users.models import User
 from users.utils import get_profile
 from users.schemas import NewUser, UserProfile
-from auth.utils import encrypt, base64_encode, AccessTokenPayload, base64_decode, check_user_agent
+from auth.utils import encrypt, base64_encode, AccessTokenPayload, base64_decode, check_user_agent, get_salted_password, \
+    generate_salted_password
 from utils import BaseResponse
 
 router = APIRouter(prefix='/auth',
@@ -121,12 +123,18 @@ async def login(credentials: Credentials,
                 session: AsyncSession=Depends(get_async_session),
                 user_agent: str=Depends(check_user_agent)) -> JwtTokens:
 
-    user = (await session.execute(select(User)
+    user_auth = (await session.execute(select(User, Auth)
                                   .join(Auth)
-                                  .where(and_(User.name == credentials.username,
-                                              Auth.password == encrypt(credentials.password))))).scalars().first()
-    if user is None:
+                                  .where(User.name == credentials.username))).first()
+
+    if user_auth is None:
+        raise HTTPException(status_code=404, detail="user with same name doesn't exist")
+
+    user, auth = user_auth
+
+    if get_salted_password(password=credentials.password, dynamic_salt=auth.salt) != auth.password:
         raise HTTPException(status_code=401, detail='incorrect username and password')
+
 
     if token := (await session.execute(select(RefreshToken)
                         .where(and_(RefreshToken.user_id==user.id,
@@ -205,10 +213,13 @@ async def change_password(passwords: Passwords,
 
     auth = (await session.execute(select(Auth).where(Auth.user_id == access_token.id))).scalar()
 
-    if auth.password != encrypt(passwords.oldPassword):
+    if auth.password != get_salted_password(password=passwords.oldPassword, dynamic_salt=auth.salt):
         raise HTTPException(status_code=409, detail='Old password is wrong')
 
-    auth.password = encrypt(passwords.newPassword)
+    encrypted_password, salt = generate_salted_password(passwords.newPassword)
+
+    auth.password = encrypted_password
+    auth.salt = salt
     session.add(auth)
 
     return await get_profile(session, access_token.id, user_agent)

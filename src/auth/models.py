@@ -10,6 +10,7 @@ class Auth(Base):
     id = Column(UUID, primary_key=True)
     user_id = Column(ForeignKey('users.id', ondelete='cascade'), nullable=False)
     password = Column(LargeBinary, nullable=False)
+    salt = Column(LargeBinary, nullable=False)
 
 
 
