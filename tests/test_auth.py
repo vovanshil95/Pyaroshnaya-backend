@@ -8,7 +8,7 @@ from conftest import async_session_maker_test, AsyncClient, user_in_db, authoris
 
 @pytest.mark.parametrize('name, password, user_agent, status_code',
                          [('first_user', '1234', 'second-user-agent', 200),
-                          ('second_user', '1234', 'second-user-agent', 401),
+                          ('second_user', '1234', 'second-user-agent', 404),
                           ('first_user', '12345', 'second-user-agent', 401)])
 async def test_login(ac: AsyncClient,
                      user_in_db,

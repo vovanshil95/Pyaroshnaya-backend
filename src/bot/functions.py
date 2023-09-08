@@ -7,7 +7,7 @@ from sqlalchemy import select, update, delete
 
 import bot.config_ as CONSTS
 from auth.models import Auth, RefreshToken
-from auth.utils import encrypt
+from auth.utils import encrypt, generate_salted_password
 from database import async_session_maker
 from users.models import User
 from questions.models import Question, Answer
@@ -26,9 +26,13 @@ async def add_user(chat_id: int):
                              chat_id=chat_id,
                              name=name))
             await session.flush()
+
+            encrypted_password, salt = generate_salted_password(password)
+
             session.add(Auth(id=uuid.uuid4(),
                              user_id=user_id,
-                             password=encrypt(password)))
+                             password=encrypted_password,
+                             salt=salt))
 
             questions = (await session.execute(select(Question))).scalars().all()
             session.add_all([Answer(id=uuid.uuid4(),
@@ -38,8 +42,11 @@ async def add_user(chat_id: int):
                                     interaction_id=None) for question in questions])
 
         else:
+
+            encrypted_password, salt = generate_salted_password(password)
+
             name = user.name
-            await session.execute(update(Auth).where(Auth.user_id == user.id).values(password=encrypt(password)))
+            await session.execute(update(Auth).where(Auth.user_id == user.id).values(password=encrypted_password, salt=salt,))
             await session.execute(delete(RefreshToken).where(RefreshToken.user_id == user.id))
 
     return name, password

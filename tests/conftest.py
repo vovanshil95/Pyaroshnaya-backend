@@ -15,7 +15,7 @@ sys.path.append(sys.path[0].replace('tests', 'src'))
 from main import app
 from database import get_db, get_async_session
 from config import TEST_DB_HOST, TEST_DB_PORT, TEST_DB_NAME, TEST_DB_USER, TEST_DB_PASS
-from auth.utils import encrypt
+from auth.utils import encrypt, generate_salted_password
 from users.models import User
 from auth.models import Base, Auth, RefreshToken
 from questions.models import Category, Answer, Prompt
@@ -69,9 +69,13 @@ async def user_in_db():
                          role='user',
                          chat_id=1234))
         await session.flush()
+
+        encrypted_password, salt = generate_salted_password('1234')
+
         session.add(Auth(id=uuid.uuid4(),
                          user_id=user_id,
-                         password=encrypt('1234')))
+                         password=encrypted_password,
+                         salt=salt))
         session.add(RefreshToken(id=uuid.uuid4(),
                                  user_id=user_id,
                                  user_agent='first-user-agent',
