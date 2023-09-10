@@ -7,7 +7,7 @@ from fastapi.responses import FileResponse
 from auth.routes import get_admin_token
 
 router = APIRouter(prefix='/files',
-                   tags=['files'])
+                   tags=['Files'])
 
 @router.post('', dependencies=[Depends(get_admin_token)])
 async def post_file(file: UploadFile = File(...)):

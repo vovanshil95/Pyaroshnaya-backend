@@ -35,7 +35,7 @@ class BaseQuestion(BaseModel):
     questionType: str = 'text'
 
 class AdminQuestion(BaseQuestion):
-    order_index: int
+    orderIndex: int
 
 class Question(BaseQuestion):
     answer: str | uuid.UUID | None
@@ -61,3 +61,6 @@ class Answer(BaseModel):
     questionId: uuid.UUID
     answer: str | None
     answers: list[str] | None
+
+class AdminQuestionsResponse(BaseResponse):
+    questions: list[AdminQuestion]

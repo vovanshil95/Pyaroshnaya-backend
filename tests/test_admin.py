@@ -31,6 +31,7 @@ async def admin_in_db(user_in_db):
                           (False, 3)])
 async def test_change_questions(admin_in_db,
                                 questions_in_db,
+                                authorisation,
                                 ac: AsyncClient,
                                 new_question: bool,
                                 questions_size: int):
@@ -47,11 +48,12 @@ async def test_change_questions(admin_in_db,
                              isRequired=True,
                              categoryId=questions_in_db[0][0],
                              questionType='options',
-                             order_index=questions_size - 1).dict()
+                             orderIndex=questions_size - 1).dict()
 
     question = uuids_to_hex(question)
 
     response = await ac.post('/admin/question',
+                             headers={'Authorization': authorisation},
                              json=question)
 
     assert response.status_code == 200
