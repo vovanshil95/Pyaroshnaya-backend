@@ -8,6 +8,7 @@ from questions.routers import router as questions_router
 from history.routers import router as history_router
 from users.routers import router as users_router
 from files.routers import router as files_router
+from admin.routers import router as admin_router
 from config import ORIGINS
 from error_handlers import http_exception_handler
 from config import OPENAI_API_KEY
@@ -28,6 +29,7 @@ app.include_router(questions_router)
 app.include_router(history_router)
 app.include_router(users_router)
 app.include_router(files_router)
+app.include_router(admin_router)
 
 def custom_openapi():
     openapi_schema = get_openapi(

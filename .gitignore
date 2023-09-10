@@ -4,3 +4,4 @@ __pycache__/
 .env
 .bash_configs/
 storage/
+/src/private/

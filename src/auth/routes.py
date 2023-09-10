@@ -22,7 +22,7 @@ from auth.utils import encrypt, base64_encode, AccessTokenPayload, base64_decode
 from utils import BaseResponse
 
 router = APIRouter(prefix='/auth',
-                   tags=['auth'])
+                   tags=['Auth'])
 
 async def get_access_token(Authorization: str = Header(...)) -> AccessTokenPayload:
     base64_chars = r'[a-zA-Z0-9=_+-/]'
