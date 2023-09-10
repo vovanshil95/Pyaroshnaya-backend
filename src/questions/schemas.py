@@ -22,16 +22,25 @@ class Option(BaseModel):
     id: uuid.UUID
     text: str
 
-class Question(BaseModel):
+class FullOption(Option):
+    text_to_prompt: str
+
+class BaseQuestion(BaseModel):
     id: uuid.UUID
     question: str
     snippet: str | None
-    options: list[Option] | None
-    answer: str | uuid.UUID | None
-    answers: list[str] | list[uuid.UUID] | None
+    options: list[FullOption] | None
     isRequired: bool
     categoryId: uuid.UUID
     questionType: str = 'text'
+
+class AdminQuestion(BaseQuestion):
+    order_index: int
+
+class Question(BaseQuestion):
+    answer: str | uuid.UUID | None
+    answers: list[str] | list[uuid.UUID] | None
+    options: list[Option] | None
 
 class QuestionsResponse(BaseResponse):
     questions: list[Question]
