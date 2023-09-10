@@ -61,3 +61,19 @@ async def test_change_questions(admin_in_db,
     assert len(questions) == questions_size
     assert questions[-1]['question'] == 'super question 1'
     assert questions[-1]['options'][0]['text'] == 'super option text 1'
+
+
+async def test_change_prompt(categories_in_db,
+                             admin_in_db,
+                             authorisation,
+                             ac: AsyncClient):
+    prompt = ['It is test prompt and here is first answer {1}',
+              'It is second prompt and here is seconde answer {2}']
+
+    response = await ac.post('/admin/prompt',
+                             headers={'Authorization': authorisation},
+                             json={'categoryId': categories_in_db[0].hex,
+                                   'prompt': prompt})
+    assert response.status_code == 200
+    category = [category for category in response.json()['categories'] if uuid.UUID(hex=category['id']) == categories_in_db[0]][0]
+    assert category['prompt'] == prompt

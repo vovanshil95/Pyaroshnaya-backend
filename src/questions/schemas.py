@@ -64,3 +64,13 @@ class Answer(BaseModel):
 
 class AdminQuestionsResponse(BaseResponse):
     questions: list[AdminQuestion]
+
+class Prompt(BaseModel):
+    categoryId: uuid.UUID
+    prompt: list[str]
+
+class AdminCategory(Category):
+    prompt: list[str]
+
+class AdminCategoriesResponse(BaseResponse):
+    categories: list[AdminCategory]
