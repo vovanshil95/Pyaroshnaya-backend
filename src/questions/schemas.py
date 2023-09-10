@@ -74,3 +74,6 @@ class AdminCategory(Category):
 
 class AdminCategoriesResponse(BaseResponse):
     categories: list[AdminCategory]
+
+class UnfilledPromptResponse(BaseResponse):
+    prompt: list[str]
