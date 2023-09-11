@@ -16,6 +16,7 @@ jobs:
           cd Pyaroshnaya-backend
           git pull
           source venv/bin/activate
+          pip install -r requirements/base.txt
           alembic upgrade head
           cd src/
           pgrep python | xargs kill
