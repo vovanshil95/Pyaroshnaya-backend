@@ -35,4 +35,3 @@ async def test_get_templates(ac: AsyncClient,
     assert response.status_code == 200
     temlates = response.json()['templates']
     assert len(temlates) == 1
-    assert temlates[0]['']
