@@ -77,3 +77,8 @@ class AdminCategoriesResponse(BaseResponse):
 
 class UnfilledPromptResponse(BaseResponse):
     prompt: list[str]
+
+class QuestionAnswers(BaseModel):
+    id: uuid.UUID
+    userId: uuid.UUID
+    questions: list[Question]

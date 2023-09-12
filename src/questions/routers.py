@@ -89,6 +89,7 @@ async def get_question_data(user_id: uuid.UUID, session: AsyncSession, category_
                                        .join(Option, isouter=True)
                                        .where(and_(QuestionModel.category_id==category_id if category_id is not None else True,
                                                    AnswerModel.interaction_id.is_(None),
+                                                   AnswerModel.template_id.is_(None),
                                                    AnswerModel.user_id == user_id))
                                        .group_by(QuestionModel.id)
                                        .order_by(QuestionModel.order_index))).all()
