@@ -18,8 +18,11 @@ async def test_get_history(ac: AsyncClient,
     assert response.status_code == 200
     interactions = response.json()['data']
     assert len(interactions) == 1
-    assert len(interactions[0]['questions']) == 3
-    assert set(map(lambda el: el['answer'], interactions[0]['questions'])) == {'super-answer-1', 'super-answer-3', None}
+    assert len(interactions[0]['questions']) == 4
+    assert set(map(lambda el: el['answer'], interactions[0]['questions'])) == {'super-answer-1',
+                                                                               'super-answer-3',
+                                                                               str(questions_in_db[2]),
+                                                                               None}
 
 @pytest.mark.parametrize('change_id, status_code',
                         [(False, 200),

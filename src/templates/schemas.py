@@ -11,7 +11,7 @@ class TemplatesResponse(BaseResponse):
 
 class NewAnswer(BaseModel):
     quetionID: uuid.UUID
-    answer: str
+    answer: str | uuid.UUID | None
 
 class NewAnswers(BaseModel):
     templateId: uuid.UUID
