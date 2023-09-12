@@ -162,3 +162,8 @@ async def delete_question(questionId: uuid.UUID,
     await session.delete(question)
     await session.flush()
     return await get_admin_questions(session, question.category_id)
+
+@router.get('/questions', dependencies=[Depends(get_admin_token)])
+async def get_questions(categoryId: uuid.UUID,
+                        session: AsyncSession=Depends(get_async_session)) -> AdminQuestionsResponse:
+    return await get_admin_questions(session, categoryId)

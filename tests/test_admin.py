@@ -146,3 +146,31 @@ async def test_delete_question(questions_in_db,
     questions = response.json()['questions']
     assert len(questions) == 2
     assert questions_in_db[1][0] not in [uuid.UUID(hex=question['id']) for question in questions]
+
+
+async def test_get_admin_questions(questions_in_db,
+                                   admin_in_db,
+                                   authorisation,
+                                   ac: AsyncClient):
+    response = await ac.get('/admin/questions',
+                            headers={'Authorization': authorisation},
+                            params={'categoryId': questions_in_db[0][0]})
+
+    expected_question = AdminQuestion(id=uuid.uuid4(),
+                                      question='super-question-test-text-1',
+                                      isRequired=True,
+                                      options=None,
+                                      categoryId=questions_in_db[0][0],
+                                      snippet=None,
+                                      orderIndex=0,
+                                      questionType='text').dict()
+    expected_question.pop('id')
+    expected_question.pop('categoryId')
+
+    assert response.status_code == 200
+    questions = response.json()['questions']
+    assert len(questions) == 3
+    first_question = questions[0]
+    first_question.pop('id')
+    first_question.pop('categoryId')
+    assert first_question == expected_question
