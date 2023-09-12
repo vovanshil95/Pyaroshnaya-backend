@@ -27,8 +27,8 @@ async def admin_in_db(user_in_db):
     yield user
 
 @pytest.mark.parametrize('new_question, questions_size',
-                         [(True, 4),
-                          (False, 3)])
+                         [(True, 5),
+                          (False, 4)])
 async def test_change_questions(admin_in_db,
                                 questions_in_db,
                                 authorisation,
@@ -44,11 +44,11 @@ async def test_change_questions(admin_in_db,
                                                  text_to_prompt='super text to prompt 1'),
                                       FullOption(id=uuid.uuid4(),
                                                  text='super option text 2',
-                                                 text_to_prompt='super text to prompt 1')],
+                                                 text_to_prompt='super text to prompt 2')],
                              isRequired=True,
                              categoryId=questions_in_db[0][0],
                              questionType='options',
-                             orderIndex=questions_size - 1).dict()
+                             orderIndex=questions_size).dict()
 
     question = uuids_to_hex(question)
 
@@ -60,7 +60,8 @@ async def test_change_questions(admin_in_db,
     questions = response.json()['questions']
     assert len(questions) == questions_size
     assert questions[-1]['question'] == 'super question 1'
-    assert questions[-1]['options'][0]['text'] == 'super option text 1'
+    texts = {questions[-1]['options'][i]['text'] for i in range(2)}
+    assert texts == {'super option text 1', 'super option text 2'}
 
 
 async def test_add_change_prompt(categories_in_db,
@@ -144,7 +145,7 @@ async def test_delete_question(questions_in_db,
 
     assert response.status_code == 200
     questions = response.json()['questions']
-    assert len(questions) == 2
+    assert len(questions) == 3
     assert questions_in_db[1][0] not in [uuid.UUID(hex=question['id']) for question in questions]
 
 
@@ -169,7 +170,7 @@ async def test_get_admin_questions(questions_in_db,
 
     assert response.status_code == 200
     questions = response.json()['questions']
-    assert len(questions) == 3
+    assert len(questions) == 4
     first_question = questions[0]
     first_question.pop('id')
     first_question.pop('categoryId')

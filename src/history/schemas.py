@@ -1,16 +1,9 @@
 import datetime
-import uuid
 
-from pydantic import BaseModel
-
-from questions.schemas import Question
+from questions.schemas import QuestionAnswers
 from utils import BaseResponse
 
-
-class GptInteraction(BaseModel):
-    id: uuid.UUID
-    userId: uuid.UUID
-    questions: list[Question]
+class GptInteraction(QuestionAnswers):
     dateTime: datetime.datetime
     gptResponse: str
     isFavorite: bool

@@ -27,9 +27,12 @@ async def test_get_questions(ac: AsyncClient,
                             headers={'Authorization': authorisation},
                             params={'categoryId': questions_in_db[0][0]})
     assert response.status_code == 200
-    assert len(response.json()['questions']) == 3
+    assert len(response.json()['questions']) == 4
     question_texts = set(map(lambda q: q['question'], response.json()['questions']))
-    assert question_texts == {'super-question-test-text-1', 'super-question-test-text-2', 'super-question-test-text-3'}
+    assert question_texts == {'super-question-test-text-1',
+                              'super-question-test-text-2',
+                              'super-question-test-text-3',
+                              'super-question-test-text-4'}
     first_question = list(filter(lambda q: q['question'] == 'super-question-test-text-1',
                                  response.json()['questions']))[0]
     assert first_question['answer'] == 'super-answer-1'
@@ -53,16 +56,19 @@ async def test_gpt_response(ac: AsyncClient,
 
     assert response.status_code == status_code
     if status_code == 200:
-        assert len(response.json()['questions']) == 3
+        assert len(response.json()['questions']) == 4
         question_texts = set(map(lambda q: q['question'], response.json()['questions']))
-        assert question_texts == {'super-question-test-text-1', 'super-question-test-text-2', 'super-question-test-text-3'}
+        assert question_texts == {'super-question-test-text-1',
+                                  'super-question-test-text-2',
+                                  'super-question-test-text-3',
+                                  'super-question-test-text-4'}
 
 @pytest.mark.parametrize('question_index, random_id, answer, answers, status_code',
                          [(0, False, 'answer', None, 200),
                           (0, False, None, ['answer1', 'answer2'], 200),
                           (1, False, 'answer', None, 200),
                           (2, False, 'answer', None, 200),
-                          (3, False, 'answer', None, 200),
+                          (4, False, 'answer', None, 200),
                           (0, True, 'answer', None, 404),
                           (0, False, None, None, 200)])
 async def test_answer(ac: AsyncClient,

@@ -2,7 +2,7 @@ import uuid
 
 from sqlalchemy import Column, UUID, String, BOOLEAN, ForeignKey, Integer
 
-from history.models import Base
+from templates.models import Base
 
 class Category(Base):
     __tablename__ = 'question_category'
@@ -76,17 +76,20 @@ class Answer(Base):
                  question_id: uuid.UUID,
                  user_id: uuid.UUID,
                  text: str=None,
-                 interaction_id: uuid.UUID=None):
+                 interaction_id: uuid.UUID=None,
+                 template_id: uuid.UUID=None):
         self.id = id
         self.question_id = question_id
         self.text = text
         self.user_id = user_id
         self.interaction_id = interaction_id
+        self.template_id = template_id
     id = Column(UUID, primary_key=True)
     question_id = Column(ForeignKey('question.id', ondelete='cascade'), nullable=False)
     user_id = Column(ForeignKey('users.id', ondelete='cascade'), nullable=False)
     interaction_id = Column(ForeignKey('gpt_interaction.id', ondelete='cascade'))
     text = Column(String)
+    template_id = Column(ForeignKey('template.id', ondelete='cascade'))
 
 class Option(Base):
     __tablename__ = 'option'

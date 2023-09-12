@@ -18,7 +18,7 @@ from config import TEST_DB_HOST, TEST_DB_PORT, TEST_DB_NAME, TEST_DB_USER, TEST_
 from auth.utils import encrypt, generate_salted_password
 from users.models import User
 from auth.models import Base, Auth, RefreshToken
-from questions.models import Category, Answer, Prompt
+from questions.models import Category, Answer, Prompt, Option
 from questions.models import Question as QuestionModel
 from questions.routers import get_gpt_send, get_filled_prompt
 from questions.schemas import Question as QuestionSchema
@@ -145,6 +145,7 @@ async def questions_in_db(categories_in_db, user_in_db):
         second_question_id = uuid.uuid4()
         third_question_id = uuid.uuid4()
         fourth_question_id = uuid.uuid4()
+        fifth_question_id = uuid.uuid4()
         session.add(QuestionModel(id=first_question_id,
                                   question_text='super-question-test-text-1',
                                   is_required=True,
@@ -167,12 +168,32 @@ async def questions_in_db(categories_in_db, user_in_db):
                                   type_='text'))
         session.add(QuestionModel(id=fourth_question_id,
                                   question_text='super-question-test-text-4',
+                                  is_required=False,
+                                  category_id=categories_in_db[0],
+                                  order_index=3,
+                                  type_='options'))
+        session.add(QuestionModel(id=fifth_question_id,
+                                  question_text='super-question-test-text-5',
                                   is_required=True,
                                   category_id=categories_in_db[1],
                                   order_index=0,
                                   type_='text'))
 
         await session.flush()
+
+        session.add(Option(id=uuid.uuid4(),
+                           question_id=fourth_question_id,
+                           option_text='first option text',
+                           text_to_prompt='super secret prompt text 1'))
+        session.add(Option(id=(second_option_id := uuid.uuid4()),
+                           question_id=fourth_question_id,
+                           option_text='second option text',
+                           text_to_prompt='super secret prompt text 2'))
+
+        session.add(Answer(id=uuid.uuid4(),
+                           user_id=user_in_db,
+                           question_id=fourth_question_id,
+                           text=second_option_id.hex))
 
         session.add(Answer(id=uuid.uuid4(),
                            question_id=first_question_id,
@@ -186,11 +207,16 @@ async def questions_in_db(categories_in_db, user_in_db):
                            question_id=second_question_id,
                            text=None,
                            user_id=user_in_db))
+        session.add(Answer(id=uuid.uuid4(),
+                           question_id=fifth_question_id,
+                           text=None,
+                           user_id=user_in_db))
 
     yield categories_in_db, [first_question_id,
                              second_question_id,
                              third_question_id,
-                             fourth_question_id]
+                             fourth_question_id,
+                             fifth_question_id], second_option_id
     async with async_session_maker_test.begin() as session:
         await session.execute(delete(QuestionModel))
         await session.execute(delete(Answer))
