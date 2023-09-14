@@ -13,7 +13,8 @@ async def templates_in_db(questions_in_db,
                           user_in_db):
     async with async_session_maker_test.begin() as session:
         template = Template(id=(template_id := uuid.uuid4()),
-                             user_id=user_in_db)
+                            user_id=user_in_db,
+                            title='super template')
         session.add(template)
         await session.flush()
 
@@ -42,7 +43,8 @@ async def test_add_template(ac: AsyncClient,
                             authorisation):
     response = await ac.put('/templates',
                             headers={'Authorization': authorisation},
-                            json={'categoryId': questions_in_db[0][0].hex})
+                            json={'categoryId': questions_in_db[0][0].hex,
+                                  'title': 'super template 1'})
 
     assert response.status_code == 200
     templates = response.json()['templates']
@@ -57,7 +59,8 @@ async def test_change_templates(ac: AsyncClient,
                                 authorisation):
     templates_resp = await ac.put('/templates',
                                   headers={'Authorization': authorisation},
-                                  json={'categoryId': questions_in_db[0][0].hex})
+                                  json={'categoryId': questions_in_db[0][0].hex,
+                                        'title': 'super template title 2'})
 
     template_id = templates_resp.json()['templates'][0]['id']
     questions = templates_resp.json()['templates'][0]['questions']
@@ -66,6 +69,7 @@ async def test_change_templates(ac: AsyncClient,
     response = await ac.post('/templates',
                              headers={'Authorization': authorisation},
                              json={'templateId': template_id,
+                                   'title': 'super title',
                                    'newAnswers': [
                                        {'quetionId': question_id,
                                         'answer': f'super answer {i}'}
@@ -84,7 +88,8 @@ async def test_delete_template(ac: AsyncClient,
                                authorisation):
     templates_resp = await ac.put('/templates',
                                   headers={'Authorization': authorisation},
-                                  json={'categoryId': questions_in_db[0][0].hex})
+                                  json={'categoryId': questions_in_db[0][0].hex,
+                                        'title': 'super template title'})
 
     template_id = templates_resp.json()['templates'][0]['id']
 
