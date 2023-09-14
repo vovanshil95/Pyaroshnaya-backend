@@ -21,7 +21,7 @@ from questions.schemas import Option as OptionSchema
 from questions.schemas import CategoriesResponse, QuestionsResponse, CategoryId
 from history.models import GptInteraction
 from database import get_async_session
-from utils import BaseResponse
+from utils import BaseResponse, try_uuid
 from config import OPENAI_API_KEY
 
 router = APIRouter(prefix='/question',
@@ -37,7 +37,8 @@ async def get_filled_prompt(questions: list[QuestionSchema],
     for question in questions:
         if question.answer is None:
             continue
-        if question.questionType == 'options':
+        if question.questionType == 'options' or (question.questionType == 'semi-options'
+                                                  and isinstance(try_uuid(question.answer), uuid.UUID)):
             try:
                 uuid.UUID(hex=question.answer)
             except ValueError:
@@ -54,7 +55,9 @@ async def get_filled_prompt(questions: list[QuestionSchema],
             options_dict[option.id] = option.text_to_prompt
     answers = [None if question.answer is None
                else options_dict[uuid.UUID(hex=question.answer)]
-               if question.questionType == 'options'
+               if question.questionType == 'options' or
+                  (question.questionType == 'semi-options'
+                   and isinstance(try_uuid(question.answer), uuid.UUID))
                else question.answer
                for question in questions]
 
