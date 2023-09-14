@@ -2,10 +2,10 @@ import uuid
 from datetime import datetime
 from typing import Callable
 
-import openai
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select, func, and_, update, delete
 from sqlalchemy.ext.asyncio import AsyncSession
+import aiohttp
 
 from auth.routes import get_access_token, get_admin_token
 from auth.utils import AccessTokenPayload
@@ -20,6 +20,7 @@ from questions.schemas import CategoriesResponse, QuestionsResponse, CategoryId
 from history.models import GptInteraction
 from database import get_async_session
 from utils import BaseResponse
+from config import OPENAI_API_KEY
 
 router = APIRouter(prefix='/question',
                    tags=['Questions'])
@@ -71,9 +72,18 @@ def get_gpt_send():
 
         filled_prompt = await get_filled_prompt(questions, prompt, session)
 
-        response = openai.ChatCompletion.create(model='gpt-4',
-                                                messages=[{'role': 'user', 'content': filled_prompt}])
-        response = response['choices'][0]['message']['content']
+        async with aiohttp.ClientSession() as session:
+            async with session.post('https://api.openai.com/v1/chat/completions',
+                                    headers={
+                                        'Content-Type': 'application/json',
+                                        'Authorization': f'Bearer {OPENAI_API_KEY}'
+                                    },
+                                    json={
+                                        'model': 'gpt-4',
+                                        'messages': [{'role': 'user', 'content': filled_prompt}]
+                                    }) as response:
+                response = await response.json()
+                response = response['choices'][0]['message']['content']
 
         return response
 
