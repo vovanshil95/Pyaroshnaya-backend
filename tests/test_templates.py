@@ -35,3 +35,62 @@ async def test_get_templates(ac: AsyncClient,
     assert response.status_code == 200
     temlates = response.json()['templates']
     assert len(temlates) == 1
+
+async def test_add_template(ac: AsyncClient,
+                            user_in_db,
+                            questions_in_db,
+                            authorisation):
+    response = await ac.put('/templates',
+                            headers={'Authorization': authorisation},
+                            json={'categoryId': questions_in_db[0][0].hex})
+
+    assert response.status_code == 200
+    templates = response.json()['templates']
+    assert len(templates) == 1
+    questions = templates[0]['questions']
+    assert len(questions) == 4
+
+
+async def test_change_templates(ac: AsyncClient,
+                                user_in_db,
+                                questions_in_db,
+                                authorisation):
+    templates_resp = await ac.put('/templates',
+                                  headers={'Authorization': authorisation},
+                                  json={'categoryId': questions_in_db[0][0].hex})
+
+    template_id = templates_resp.json()['templates'][0]['id']
+    questions = templates_resp.json()['templates'][0]['questions']
+    question_ids = [questions[i]['id'] for i in range(len(questions))]
+
+    response = await ac.post('/templates',
+                             headers={'Authorization': authorisation},
+                             json={'templateId': template_id,
+                                   'newAnswers': [
+                                       {'quetionId': question_id,
+                                        'answer': f'super answer {i}'}
+                                       for i,question_id in enumerate(question_ids)
+                                   ]})
+
+    assert response.status_code == 200
+    questions = response.json()['templates'][0]['questions']
+    answers = {question['answer'] for question in questions}
+    assert {f'super answer {i}' for i in range(len(questions))} == answers
+
+
+async def test_delete_template(ac: AsyncClient,
+                               user_in_db,
+                               questions_in_db,
+                               authorisation):
+    templates_resp = await ac.put('/templates',
+                                  headers={'Authorization': authorisation},
+                                  json={'categoryId': questions_in_db[0][0].hex})
+
+    template_id = templates_resp.json()['templates'][0]['id']
+
+    response = await ac.delete('/templates',
+                               headers={'Authorization': authorisation},
+                               params={'templateId': template_id})
+
+    assert response.status_code == 200
+    assert response.json()['templates'] == []

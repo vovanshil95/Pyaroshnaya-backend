@@ -81,7 +81,7 @@ async def add_template(category_id: CategoryId,
     question_ids = (await session.execute(
         select(QuestionModel.id)
         .where(QuestionModel.category_id == category_id.categoryId)
-    )).all()
+    )).scalars().all()
 
     answers = (await session.execute(
         select(Answer)
@@ -135,13 +135,13 @@ async def change_template(answers: NewAnswers,
         )
     )).scalars().all()
 
-    old_answers = {old_answer.question_id: old_answers for old_answer in old_answers}
+    old_answers = {old_answer.question_id: old_answer for old_answer in old_answers}
     changed_answers = []
 
     for new_answer in answers.newAnswers:
-        answer = old_answers.get(new_answer.quetionID)
+        answer = old_answers.get(new_answer.quetionId)
         if answer is None:
-            raise HTTPException(status_code=404, detail=f"can't find question with id {new_answer.quetionID}")
+            raise HTTPException(status_code=404, detail=f"can't find question with id {new_answer.quetionId}")
         answer.text = new_answer.answer
         changed_answers.append(answer)
 
