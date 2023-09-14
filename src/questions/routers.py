@@ -1,6 +1,8 @@
+import re
 import uuid
 from datetime import datetime
 from typing import Callable
+from copy import deepcopy
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select, func, and_, update, delete
@@ -50,15 +52,22 @@ async def get_filled_prompt(questions: list[QuestionSchema],
         options_dict = {}
         for option in options:
             options_dict[option.id] = option.text_to_prompt
-    answers = ['' if question.answer is None
+    answers = [None if question.answer is None
                else options_dict[uuid.UUID(hex=question.answer)]
-    if question.questionType == 'options'
-    else question.answer
+               if question.questionType == 'options'
+               else question.answer
                for question in questions]
 
     answers.insert(0, None)
 
-    filled_prompt = '\n'.join(prompt).format(*answers)
+    clean_prompt = deepcopy(prompt)
+
+    for prompt_el in prompt:
+        matches = [int(el) for el in re.findall(r'\{(\d+)\}', prompt_el)]
+        if len(matches) > 0 and all([answers[match] is None for match in matches]):
+            clean_prompt.remove(prompt_el)
+
+    filled_prompt = '\n'.join(clean_prompt).format(*answers)
 
     return filled_prompt
 
