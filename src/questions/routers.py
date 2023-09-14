@@ -242,13 +242,14 @@ async def answer(answer: AnswerSchema,
         raise HTTPException(404, 'Question with this id doesnt exist')
 
     if answer.answers is None:
-        if question.type_ == 'numeric' and not answer.answer.isnumeric():
-            raise HTTPException(status_code=422, detail='answers to questions with numeric type must be numeric')
-        if question.type_ == 'options':
-            try:
-                uuid.UUID(hex=answer.answer)
-            except ValueError:
-                raise HTTPException(status_code=422, detail='optional questions must have uuid in answer')
+        if answer.answer is not None:
+            if question.type_ == 'numeric' and not answer.answer.isnumeric():
+                raise HTTPException(status_code=422, detail='answers to questions with numeric type must be numeric')
+            if question.type_ == 'options':
+                try:
+                    uuid.UUID(hex=answer.answer)
+                except ValueError:
+                    raise HTTPException(status_code=422, detail='optional questions must have uuid in answer')
         if (answer_model := (await session.execute(
                 select(AnswerModel)
                 .where(and_(AnswerModel.question_id == answer.questionId,
