@@ -10,7 +10,7 @@ class TemplatesResponse(BaseResponse):
     templates: list[QuestionAnswers]
 
 class NewAnswer(BaseModel):
-    quetionID: uuid.UUID
+    quetionId: uuid.UUID
     answer: str | uuid.UUID | None
 
 class NewAnswers(BaseModel):
