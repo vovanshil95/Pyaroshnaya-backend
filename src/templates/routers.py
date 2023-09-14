@@ -7,15 +7,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from auth.routes import get_access_token
 from auth.utils import AccessTokenPayload
 from database import get_async_session
-from questions.schemas import QuestionAnswers
 from questions.models import Answer
 from questions.models import Option as OptionModel
 from questions.schemas import Option as OptionSchema
 from questions.models import Question as QuestionModel
 from questions.schemas import Question as QuestionSchema
 from questions.schemas import CategoryId
-from templates.models import Template
-from templates.schemas import TemplatesResponse, NewAnswers
+from templates.models import Template as TemplateModel
+from templates.schemas import Template as TemplateSchema, NewTemplate, NewTemplateSave
+from templates.schemas import TemplatesResponse
 from utils import try_uuid
 
 router = APIRouter(prefix='/templates', tags=['Templates'])
@@ -26,13 +26,15 @@ async def get_templates_response(session: AsyncSession,
         select(text('id'),
                text('array_agg(id_1)'),
                text('array_agg(question_text)'),
+               text('array_agg(type_)'),
                text('array_agg(snippet)'),
                text('array_agg(option_ids)'),
                text('array_agg(option_texts)'),
                text('array_agg(question_answers)'),
                text('array_agg(is_required)'),
-               text('category_id'))
-        .select_from(select(Template,
+               text('category_id'),
+               text('title'))
+        .select_from(select(TemplateModel,
                             QuestionModel,
                             func.string_agg(Answer.text.distinct(), 'DEL').label('question_answers'),
                             func.string_agg(text('option.id::text'), 'DEL').label('option_ids'),
@@ -42,45 +44,49 @@ async def get_templates_response(session: AsyncSession,
                      .join(OptionModel, isouter=True)
                      .where(Answer.user_id == user_id)
                      .group_by(QuestionModel.id)
-                     .group_by(Template.id)
-                     .select_from(Template)
+                     .group_by(TemplateModel.id)
+                     .select_from(TemplateModel)
                      .subquery(name='template'))
         .group_by(text('template.id'))
-        .group_by(text('template.category_id')))).all()
+        .group_by(text('template.category_id'))
+        .group_by(text('template.title')))).all()
 
     templates = list(map(lambda template:
-                            QuestionAnswers(id=template[0],
+                            TemplateSchema(id=template[0],
                                             userId=user_id,
+                                            title=template[10],
                                             questions=[QuestionSchema(
                                                 id=id,
                                                 question=template[2][i],
-                                                snippet=template[3][i],
+                                                questionType=template[3][i],
+                                                snippet=template[4][i],
                                                 options=[OptionSchema(id=uuid.UUID(hex=id),text=text)
-                                                         for id, text in zip(template[4][i].split('DEL'),
-                                                                             template[5][i].split('DEL'))]
-                                                if template[4][i] is not None else None,
-                                                answer=try_uuid(template[6][i])
-                                                if template[6][i] is not None and
-                                                   len(template[6][i].split('DEL')) == 1 else None,
-                                                answers=list(map(try_uuid, template[6][i].split('DEL')))
-                                                if template[6][i] is not None and
-                                                   len(template[6][i].split('DEL')) > 1 else None,
-                                                isRequired=template[7][i],
-                                                categoryId=template[8]
+                                                         for id, text in zip(template[5][i].split('DEL'),
+                                                                             template[6][i].split('DEL'))]
+                                                if template[5][i] is not None else None,
+                                                answer=try_uuid(template[7][i])
+                                                if template[7][i] is not None and
+                                                   len(template[7][i].split('DEL')) == 1 else None,
+                                                answers=list(map(try_uuid, template[7][i].split('DEL')))
+                                                if template[7][i] is not None and
+                                                   len(template[7][i].split('DEL')) > 1 else None,
+                                                isRequired=template[8][i],
+                                                categoryId=template[9]
                                             ) for i, id in enumerate(template[1])]), templates))
 
     return TemplatesResponse(message='status success', templates=templates)
 
 @router.put('')
-async def add_template(category_id: CategoryId,
+async def add_template(new_template: NewTemplateSave,
                        user_token: AccessTokenPayload=Depends(get_access_token),
                        session: AsyncSession=Depends(get_async_session)) -> TemplatesResponse:
-    session.add(Template(id=(template_id := uuid.uuid4()),
-                         user_id=user_token.id))
+    session.add(TemplateModel(id=(template_id := uuid.uuid4()),
+                              user_id=user_token.id,
+                              title=new_template.title))
     await session.flush()
     question_ids = (await session.execute(
         select(QuestionModel.id)
-        .where(QuestionModel.category_id == category_id.categoryId)
+        .where(QuestionModel.category_id == new_template.categoryId)
     )).scalars().all()
 
     answers = (await session.execute(
@@ -115,7 +121,7 @@ async def get_templates(user_token: AccessTokenPayload=Depends(get_access_token)
 async def delete_template(templateId: uuid.UUID,
                           user_token: AccessTokenPayload=Depends(get_access_token),
                           session: AsyncSession=Depends(get_async_session)) -> TemplatesResponse:
-    template = await session.get(Template, templateId)
+    template = await session.get(TemplateModel, templateId)
     if template.user_id != user_token.id:
         raise HTTPException(status_code=403, detail="can't delete foreign template")
     await session.delete(template)
@@ -124,7 +130,7 @@ async def delete_template(templateId: uuid.UUID,
                                         user_id=user_token.id)
 
 @router.post('')
-async def change_template(answers: NewAnswers,
+async def change_template(answers: NewTemplate,
                           user_token: AccessTokenPayload=Depends(get_access_token),
                           session: AsyncSession=Depends(get_async_session)) -> TemplatesResponse:
     old_answers = (await session.execute(
