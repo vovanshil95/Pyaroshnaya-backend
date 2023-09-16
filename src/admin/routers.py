@@ -1,17 +1,20 @@
 import uuid
+from typing import Callable
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select, func, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.dialects.postgresql import aggregate_order_by
 
 from auth.routes import get_admin_token
+from auth.utils import AccessTokenPayload
 from database import get_async_session
+from questions.routers import get_question_schemas, filled_prompt_generator, get_question_data
 from questions.schemas import AdminQuestion, AdminQuestionsResponse, FullOption, AdminCategoriesResponse, AdminCategory, \
-    UnfilledPromptResponse
+    UnfilledPromptResponse, CategoryId, PromptResponse
 from questions.schemas import Prompt as PromptSchema
 from questions.schemas import Category as CategorySchema
-from questions.models import Prompt as PromptModel, Answer
+from questions.models import Prompt as PromptModel, Answer, Prompt
 from questions.models import Question, Option
 from questions.models import Category as CategoryModel
 from users.models import User
@@ -167,3 +170,22 @@ async def delete_question(questionId: uuid.UUID,
 async def get_questions(categoryId: uuid.UUID,
                         session: AsyncSession=Depends(get_async_session)) -> AdminQuestionsResponse:
     return await get_admin_questions(session, categoryId)
+
+@router.get('/filledPrompt')
+async def get_prompt(categoryId: uuid.UUID,
+                     user_token: AccessTokenPayload=Depends(get_admin_token),
+                     session: AsyncSession=Depends(get_async_session),
+                     get_filled_prompt: Callable=Depends(filled_prompt_generator)) -> PromptResponse :
+    questions_data = await get_question_data(user_token.id, session, categoryId)
+    questions = get_question_schemas(questions_data)
+    for question in questions:
+        if question.isRequired and not question.answers and not question.answer:
+            raise HTTPException(status_code=400, detail='required fields not filled')
+
+    prompt = (await session.execute(select(Prompt.text)
+                                    .where(Prompt.category_id == categoryId)
+                                    .order_by(Prompt.order_index))).scalars().all()
+
+    filled_prompt = await get_filled_prompt(questions, prompt, session)
+
+    return PromptResponse(message='status success', questions=questions, filledPrompt=filled_prompt)
