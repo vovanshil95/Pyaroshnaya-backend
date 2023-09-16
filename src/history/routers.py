@@ -1,7 +1,8 @@
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import select, func, text
+from sqlalchemy import select, func, text, literal_column
+from sqlalchemy.dialects.postgresql import aggregate_order_by
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from auth.routes import get_access_token
@@ -35,8 +36,8 @@ async def get_history(session: AsyncSession, user_id: uuid.UUID, category_id: uu
         .select_from(select(GptInteractionModel,
                             QuestionModel,
                             func.string_agg(Answer.text.distinct(), 'DEL').label('question_answers'),
-                            func.string_agg(text('option.id::text'), 'DEL').label('option_ids'),
-                            func.string_agg(Option.option_text.distinct(), 'DEL').label('option_texts'))
+                            func.string_agg(text('option.id::text'), aggregate_order_by(literal_column("'DEL'"), Option.option_text)).label('option_ids'),
+                            func.string_agg(Option.option_text.distinct(), aggregate_order_by(literal_column("'DEL'"), Option.option_text)).label('option_texts'))
                      .join(Answer)
                      .join(QuestionModel)
                      .join(Option, isouter=True)

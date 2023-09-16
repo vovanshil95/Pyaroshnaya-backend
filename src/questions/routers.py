@@ -6,6 +6,7 @@ from copy import deepcopy
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select, func, and_, update, delete
+from sqlalchemy.dialects.postgresql import aggregate_order_by
 from sqlalchemy.ext.asyncio import AsyncSession
 import aiohttp
 
@@ -65,10 +66,13 @@ async def get_filled_prompt(questions: list[QuestionSchema],
 
     clean_prompt = deepcopy(prompt)
 
-    for prompt_el in prompt:
-        matches = [int(el) for el in re.findall(r'\{(\d+)\}', prompt_el)]
-        if len(matches) > 0 and all([answers[match] is None for match in matches]):
-            clean_prompt.remove(prompt_el)
+    try:
+        for prompt_el in prompt:
+            matches = [int(el) for el in re.findall(r'\{(\d+)\}', prompt_el)]
+            if len(matches) > 0 and all([answers[match] is None for match in matches]):
+                clean_prompt.remove(prompt_el)
+    except IndexError:
+        raise HTTPException(status_code=404, detail='Invalid prompt')
 
     filled_prompt = '\n'.join(clean_prompt).format(*answers)
 
@@ -104,9 +108,9 @@ def get_gpt_send():
 async def get_question_data(user_id: uuid.UUID, session: AsyncSession, category_id: uuid.UUID | None=None) -> QuestionsData:
     questions = (await session.execute(select(QuestionModel,
                                               func.array_agg(AnswerModel.text),
-                                              func.array_agg(Option.option_text),
+                                              func.array_agg(aggregate_order_by(Option.option_text, Option.option_text)),
                                               func.array_agg(AnswerModel.id),
-                                              func.array_agg(Option.id))
+                                              func.array_agg(aggregate_order_by(Option.id, Option.option_text)))
                                        .join(AnswerModel)
                                        .join(Option, isouter=True)
                                        .where(and_(QuestionModel.category_id==category_id if category_id is not None else True,
