@@ -10,12 +10,12 @@ from sqlalchemy.dialects.postgresql import aggregate_order_by
 from sqlalchemy.ext.asyncio import AsyncSession
 import aiohttp
 
-from auth.routes import get_access_token, get_admin_token
+from auth.routes import get_access_token
 from auth.utils import AccessTokenPayload
 from questions.models import Category as CategoryModel, Option, Prompt
 from questions.models import Answer as AnswerModel
 from questions.models import Question as QuestionModel
-from questions.schemas import Question as QuestionSchema, GptAnswerResponse, PromptResponse
+from questions.schemas import Question as QuestionSchema, GptAnswerResponse, NewAnswers
 from questions.schemas import Category as CategorySchema
 from questions.schemas import Answer as AnswerSchema
 from questions.schemas import Option as OptionSchema
@@ -266,5 +266,35 @@ async def answer(answer: AnswerSchema,
                              questions=get_question_schemas(
                                  await get_question_data(user_id=user_token.id,
                                                          session=session,
-                                                         category_id=question.category_id
-                                                        )))
+                                                         category_id=question.category_id)))
+
+@router.post('/allQuestions')
+async def answer_all_questions(new_answers: NewAnswers,
+                               user_token: AccessTokenPayload=Depends(get_access_token),
+                               session: AsyncSession=Depends(get_async_session)) -> QuestionsResponse:
+
+    question_ids = [answer.quetionId for answer in new_answers.answers]
+    answer_texts = {answer.quetionId: answer.answer for answer in new_answers.answers}
+
+    answers = (await session.execute(
+        select(AnswerModel)
+        .join(QuestionModel)
+        .join(CategoryModel)
+        .where(and_(CategoryModel.id == new_answers.categoryId,
+                    AnswerModel.user_id == user_token.id,
+                    AnswerModel.question_id.in_(question_ids),
+                    AnswerModel.interaction_id.is_(None),
+                    AnswerModel.template_id.is_(None))))
+               ).scalars().all()
+
+    for answer in answers:
+        answer.text = answer_texts[answer.question_id]
+
+    session.add_all(answers)
+    await session.flush()
+
+    return QuestionsResponse(message='status success',
+                             questions=get_question_schemas(
+                                 await get_question_data(user_id=user_token.id,
+                                                         session=session,
+                                                         category_id=new_answers.categoryId)))
