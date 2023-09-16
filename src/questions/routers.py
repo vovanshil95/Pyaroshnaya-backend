@@ -216,26 +216,6 @@ async def gpt_response(category: CategoryId,
                              questions=questions,
                              gptResponse=response)
 
-@router.post('/prompt')
-async def get_prompt(category: CategoryId,
-                     user_token: AccessTokenPayload=Depends(get_admin_token),
-                     session: AsyncSession=Depends(get_async_session),
-                     get_filled_prompt: Callable=Depends(filled_prompt_generator)) -> PromptResponse :
-    questions_data = await get_question_data(user_token.id, session, category.categoryId)
-    questions = get_question_schemas(questions_data)
-    for question in questions:
-        if question.isRequired and not question.answers and not question.answer:
-            raise HTTPException(status_code=400, detail='required fields not filled')
-
-    prompt = (await session.execute(select(Prompt.text)
-                                    .where(Prompt.category_id == category.categoryId)
-                                    .order_by(Prompt.order_index))).scalars().all()
-
-    filled_prompt = await get_filled_prompt(questions, prompt, session)
-
-    return PromptResponse(message='status success', questions=questions, filledPrompt=filled_prompt)
-
-
 @router.post('/questions', responses={200: {'model': QuestionsResponse},
                                            401: {'model': BaseResponse, 'description': 'User is not authorized'},
                                            404: {'model': BaseResponse, 'description': 'Question with this id doesnt exist'},
