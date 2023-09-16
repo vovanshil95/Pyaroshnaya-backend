@@ -82,3 +82,11 @@ class QuestionAnswers(BaseModel):
     id: uuid.UUID
     userId: uuid.UUID
     questions: list[Question]
+
+class NewAnswer(BaseModel):
+    quetionId: uuid.UUID
+    answer: str | uuid.UUID | None
+
+class NewAnswers(BaseModel):
+    categoryId: uuid.UUID
+    answers: list[NewAnswer]
