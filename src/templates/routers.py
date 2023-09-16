@@ -1,7 +1,8 @@
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import and_, select, func, text
+from sqlalchemy import and_, select, func, text, literal_column
+from sqlalchemy.dialects.postgresql import aggregate_order_by
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from auth.routes import get_access_token
@@ -12,7 +13,6 @@ from questions.models import Option as OptionModel
 from questions.schemas import Option as OptionSchema
 from questions.models import Question as QuestionModel
 from questions.schemas import Question as QuestionSchema
-from questions.schemas import CategoryId
 from templates.models import Template as TemplateModel
 from templates.schemas import Template as TemplateSchema, NewTemplate, NewTemplateSave
 from templates.schemas import TemplatesResponse
@@ -37,8 +37,8 @@ async def get_templates_response(session: AsyncSession,
         .select_from(select(TemplateModel,
                             QuestionModel,
                             func.string_agg(Answer.text.distinct(), 'DEL').label('question_answers'),
-                            func.string_agg(text('option.id::text'), 'DEL').label('option_ids'),
-                            func.string_agg(OptionModel.option_text.distinct(), 'DEL').label('option_texts'))
+                            func.string_agg(text('option.id::text'), aggregate_order_by(literal_column("'DEL'"), OptionModel.option_text)).label('option_ids'),
+                            func.string_agg(OptionModel.option_text.distinct(), aggregate_order_by(literal_column("'DEL'"), OptionModel.option_text)).label('option_texts'))
                      .join(Answer)
                      .join(QuestionModel)
                      .join(OptionModel, isouter=True)
