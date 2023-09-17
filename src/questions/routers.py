@@ -237,18 +237,13 @@ async def answer(answer: AnswerSchema,
                     uuid.UUID(hex=answer.answer)
                 except ValueError:
                     raise HTTPException(status_code=422, detail='optional questions must have uuid in answer')
-        if (answer_model := (await session.execute(
+        answer_model = (await session.execute(
                 select(AnswerModel)
                 .where(and_(AnswerModel.question_id == answer.questionId,
                             AnswerModel.user_id == user_token.id,
                             AnswerModel.interaction_id.is_(None)))
-        )).scalars().first()) is None:
-            answer_model = AnswerModel(id=uuid.uuid4(),
-                                       question_id=answer.questionId,
-                                       text='',
-                                       user_id=user_token.id)
+        )).scalars().first()
         answer_model.text = answer.answer
-        session.add(answer_model)
     else:
         await session.execute(delete(AnswerModel).where(and_(
             AnswerModel.question_id == answer.questionId,
