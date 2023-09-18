@@ -256,7 +256,7 @@ async def answer(answer: AnswerSchema,
                                              text=a,
                                              user_id=user_token.id),
                                  answer.answers)))
-    await session.flush()
+    await session.commit()
     return QuestionsResponse(message='status success',
                              questions=get_question_schemas(
                                  await get_question_data(user_id=user_token.id,
@@ -285,8 +285,7 @@ async def answer_all_questions(new_answers: NewAnswers,
     for answer in answers:
         answer.text = answer_texts[answer.question_id]
 
-    session.add_all(answers)
-    await session.flush()
+    await session.commit()
 
     return QuestionsResponse(message='status success',
                              questions=get_question_schemas(
