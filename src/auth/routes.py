@@ -1,15 +1,14 @@
 import binascii
-import random
 import uuid
 from datetime import datetime, timedelta
 import re
 
 from pydantic import ValidationError
 from fastapi import APIRouter, Depends, HTTPException, Header, Request
-from sqlalchemy import select, and_, delete, or_
+from sqlalchemy import select, and_, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from config import REFRESH_TTL_DAYS, ACCESS_TTL_MINUTES, DEFAULT_PHONE, SALT
+from config import REFRESH_TTL_DAYS, ACCESS_TTL_MINUTES
 from database import get_async_session
 from auth.schemas import Credentials, JwtTokens, UserSign, AccessTokenHeader, \
     RefreshTokenPayload, AccessTokenSchema, Passwords

@@ -24,9 +24,21 @@ SALT = os.environ.get('SALT').encode()
 GREEN_SMS_TOKEN = os.environ.get('GREEN_SMS_TOKEN')
 TEST_SMS_CODE = os.environ.get('TEST_SMS_CODE')
 
+SHOP_ID = os.environ.get('SHOP_ID')
+SHOP_KEY = os.environ.get('SHOP_KEY')
+SHOP_OAUTH_TOKEN = os.environ.get('SHOP_OAUTH_TOKEN')
+
 ORIGINS = os.environ.get('ORIGINS').split(' ')
 
 REFRESH_TTL_DAYS = 30
 ACCESS_TTL_MINUTES = 15
 
 DEFAULT_PHONE = '79123456789'
+
+YOOKASSA_HOSTS = {'185.71.76.0/27',
+                  '185.71.77.0/27',
+                  '77.75.153.0/25',
+                  '77.75.156.11',
+                  '77.75.154.128/25',
+                  '77.75.156.35',
+                  '2a02:5180::/32'}
