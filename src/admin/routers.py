@@ -2,10 +2,12 @@ import uuid
 from typing import Callable
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import select, func, delete
+from sqlalchemy import select, func, delete, text
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.dialects.postgresql import aggregate_order_by
+from sqlalchemy.orm import aliased
 
+from admin.schemas import ProductsResponse
 from auth.routes import get_admin_token
 from auth.utils import AccessTokenPayload
 from database import get_async_session
@@ -19,6 +21,12 @@ from questions.models import Prompt as PromptModel, Answer, Prompt
 from questions.models import Question, Option
 from questions.models import Category as CategoryModel
 from users.models import User
+
+from payment.schemas import Product as ProductSchema
+from payment.schemas import PromoCode as PromoCodeSchema
+from payment.models import ProductCategory
+from payment.models import Product as ProductModel
+from payment.models import PromoCode as PromoCodeModel
 from history.routers import get_history
 
 router = APIRouter(prefix='/admin',
@@ -70,6 +78,43 @@ async def get_admin_questions(session: AsyncSession,
                         for question in questions]
 
     return AdminQuestionsResponse(message='status success', questions=question_schemas)
+
+async def get_products_(session: AsyncSession) -> ProductsResponse:
+
+    categories = (await session.execute(select(ProductCategory)
+                                        .order_by(ProductCategory.category_id))).scalars().all()
+    promos = (await session.execute(select(PromoCodeModel)
+                                    .order_by(PromoCodeModel.id))).scalars().all()
+    products = (await session.execute(select(ProductModel)
+                                      .where(ProductModel.active)
+                                      .order_by(ProductModel.price_rubbles))).scalars().all()
+
+    categories_dict = {product: [] for product in set([cat.product_id for cat in categories])}
+    promos_dict = {product: [] for product in set(promo.product_id for promo in promos)}
+    for category in categories:
+        categories_dict[category.product_id].append(category.category_id)
+    for promo in promos:
+        promos_dict[promo.product_id].append(PromoCodeSchema(
+            id=promo.id,
+            code=promo.code,
+            discountAbsolute=promo.discount_absolute,
+            discountPercent=promo.discount_percent
+        ))
+
+    products = [ProductSchema(
+        id=product.id,
+        title=product.title,
+        priceRubbles=product.price_rubbles,
+        availabilityDurationDays=product.availability_duration_days,
+        usageCount=product.usage_count,
+        description=product.description,
+        returnUrl=product.return_url,
+        promoCodes=promos_dict[product.id],
+        categoryIds=categories_dict[product.id]
+    ) for product in products]
+
+    return ProductsResponse(message='status success',
+                            data=products)
 
 
 @router.post('/question', dependencies=[Depends(get_admin_token)])
@@ -202,4 +247,55 @@ async def get_users_history(session: AsyncSession=Depends(get_async_session)):
                            history=(await get_history(session=session,
                                                       user_id=user.id)).data
                            ) for user in users]
-    )
+    )  
+  
+@router.post('/product', dependencies=[Depends(get_admin_token)])
+async def add_change_product(product: ProductSchema,
+                             session: AsyncSession=Depends(get_async_session)) -> ProductsResponse:
+    product_model = await session.get(ProductModel, product.id)
+    if product_model is not None:
+        product_model.description = product.description
+        product_model.return_url = product_model.return_url
+        product_model.price_rubbles = product.priceRubbles
+        product_model.availability_duration_days = product.availabilityDurationDays
+        product_model.title = product.title
+        product_model.usage_count = product.usageCount
+        await session.execute(delete(PromoCodeModel).where(PromoCodeModel.product_id == product.id))
+        await session.execute(delete(ProductCategory).where(ProductCategory.product_id == product.id))
+    else:
+        session.add(ProductModel(
+            id=product.id,
+            price_rubbles=product.priceRubbles,
+            description=product.description,
+            return_url=product.returnUrl,
+            title=product.title,
+            active=True,
+            availability_duration_days=product.availabilityDurationDays,
+            usage_count=product.usageCount
+        ))
+    await session.flush()
+    session.add_all([ProductCategory(
+        product_id=product.id,
+        category_id=category_id
+    ) for category_id in product.categoryIds])
+    session.add_all([PromoCodeModel(
+        id=promo_code.id,
+        code=promo_code.code,
+        product_id=product.id,
+        discount_absolute=promo_code.discountAbsolute,
+        discount_percent=promo_code.discountPercent
+    ) for promo_code in product.promoCodes])
+
+    return await get_products_(session=session)
+
+
+@router.get('/product', dependencies=[Depends(get_admin_token)])
+async def get_products(session: AsyncSession=Depends(get_async_session)) -> ProductsResponse:
+    return await get_products_(session=session)
+
+@router.delete('/product', dependencies=[Depends(get_admin_token)])
+async def delete_product(productId: uuid.UUID,
+                         session: AsyncSession=Depends(get_async_session)) -> ProductsResponse:
+    product = await session.get(ProductModel, productId)
+    product.active = False
+    return await get_products_(session=session)

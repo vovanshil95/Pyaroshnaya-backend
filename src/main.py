@@ -9,6 +9,7 @@ from users.routers import router as users_router
 from files.routers import router as files_router
 from admin.routers import router as admin_router
 from templates.routers import router as template_router
+from payment.routers import router as payment_router
 from config import ORIGINS
 from error_handlers import http_exception_handler
 
@@ -30,6 +31,7 @@ app.include_router(users_router)
 app.include_router(files_router)
 app.include_router(admin_router)
 app.include_router(template_router)
+app.include_router(payment_router)
 
 def custom_openapi():
     openapi_schema = get_openapi(
