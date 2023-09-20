@@ -11,7 +11,7 @@ from database import get_async_session
 from payment.models import Purchase
 from payment.models import Product as ProductModel
 from payment.models import Payment as PaymentModel
-from payment.schemas import Product as ProductSchema, Amount, Confirmation, ConfirmationUrl
+from payment.schemas import ProductId, Amount, Confirmation, ConfirmationUrl
 from payment.schemas import Payment as PaymentSchema
 from config import SHOP_ID, SHOP_KEY, SHOP_OAUTH_TOKEN, YOOKASSA_HOSTS
 from utils import BaseResponse
@@ -20,7 +20,7 @@ router = APIRouter(prefix='/pay',
                    tags=['Payment'])
 
 @router.post('/url')
-async def get_url(product: ProductSchema,
+async def get_url(product: ProductId,
                   user_token: AccessTokenPayload=Depends(get_access_token),
                   session: AsyncSession=Depends(get_async_session)) -> ConfirmationUrl:
 

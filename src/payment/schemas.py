@@ -5,7 +5,7 @@ from pydantic import BaseModel
 from utils import BaseResponse
 
 
-class Product(BaseModel):
+class ProductId(BaseModel):
     id: uuid.UUID
 
 
@@ -25,3 +25,21 @@ class Payment(BaseModel):
 
 class ConfirmationUrl(BaseResponse):
     url: str
+
+
+class PromoCode(BaseModel):
+    id: uuid.UUID
+    code: str
+    discountAbsolute: int | None
+    discountPercent: int | None
+
+class Product(BaseModel):
+    id: uuid.UUID
+    title: str
+    priceRubbles: int
+    availabilityDurationDays: int | None
+    usageCount: int | None
+    description: str
+    returnUrl: str
+    promoCodes: list[PromoCode]
+    categoryIds: list[uuid.UUID]
