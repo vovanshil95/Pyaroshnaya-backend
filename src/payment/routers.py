@@ -13,7 +13,7 @@ from payment.models import Product as ProductModel
 from payment.models import Payment as PaymentModel
 from payment.schemas import ProductId, Amount, Confirmation, ConfirmationUrl
 from payment.schemas import Payment as PaymentSchema
-from config import SHOP_ID, SHOP_KEY, SHOP_OAUTH_TOKEN, YOOKASSA_HOSTS
+from config import SHOP_ID, SHOP_KEY, YOOKASSA_NETWORKS
 from utils import BaseResponse
 
 router = APIRouter(prefix='/pay',
@@ -37,14 +37,14 @@ async def get_url(product: ProductId,
             return_url=product_model.return_url
         ),
         description=product_model.description
-    ).dict()
+    ).json()
 
     async with httpx.AsyncClient() as client:
         response = await client.post(
             'https://api.yookassa.ru/v3/payments',
-            headers={'Content-Type': 'application/json',
-                     'Idempotence-Key': uuid.uuid4()},
             auth=(SHOP_ID, SHOP_KEY),
+            headers={'Content-Type': 'application/json',
+                     'Idempotence-Key': uuid.uuid4().hex},
             data=payment
         )
         if response.status_code >= 400:
@@ -59,16 +59,17 @@ async def get_url(product: ProductId,
         product_id=product.id
     ))
 
-    return ConfirmationUrl(url=url)
+    return ConfirmationUrl(message='status success',
+                           url=url)
 
 @router.post('/succeeded')
 async def confirm(request: Request,
                   confirmation: dict,
                   session: AsyncSession=Depends(get_async_session)) -> BaseResponse:
-
-    if request.client.host not in YOOKASSA_HOSTS:
+    ip = request.client.host
+    if not any(ip in network for network in YOOKASSA_NETWORKS):
         raise HTTPException(status_code=403, detail='this endpoint is only for yookassa')
-    if confirmation['event'] == 'payment.succeeded' and not confirmation['object']['test']:
+    if confirmation['event'] == 'payment.succeeded':
         payment_id = uuid.UUID(hex=confirmation['object']['id'])
         payment = await session.get(PaymentModel, payment_id)
         product = await session.get(ProductModel, payment.product_id)
