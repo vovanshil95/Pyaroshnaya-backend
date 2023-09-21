@@ -86,8 +86,8 @@ async def get_products_(session: AsyncSession) -> ProductsResponse:
                                       .where(ProductModel.active)
                                       .order_by(ProductModel.price_rubbles))).scalars().all()
 
-    categories_dict = {product: [] for product in set([cat.product_id for cat in categories])}
-    promos_dict = {product: [] for product in set(promo.product_id for promo in promos)}
+    categories_dict = {product.id: [] for product in products}
+    promos_dict = {product.id: [] for product in products}
     for category in categories:
         categories_dict[category.product_id].append(category.category_id)
     for promo in promos:
