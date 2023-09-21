@@ -241,6 +241,7 @@ async def answer(answer: AnswerSchema,
                 select(AnswerModel)
                 .where(and_(AnswerModel.question_id == answer.questionId,
                             AnswerModel.user_id == user_token.id,
+                            AnswerModel.template_id.is_(None),
                             AnswerModel.interaction_id.is_(None)))
         )).scalars().first()
         answer_model.text = answer.answer
@@ -248,6 +249,7 @@ async def answer(answer: AnswerSchema,
         await session.execute(delete(AnswerModel).where(and_(
             AnswerModel.question_id == answer.questionId,
             AnswerModel.user_id == user_token.id,
+            AnswerModel.template_id.is_(None),
             AnswerModel.interaction_id.is_(None)
         )))
         session.add_all(list(map(lambda a:

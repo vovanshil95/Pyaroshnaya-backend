@@ -123,7 +123,7 @@ async def change_add_question(question: AdminQuestion,
     old_question = await session.get(Question, question.id)
     if old_question is not None:
         await session.delete(old_question)
-        await session.flush()
+        await session.commit()
 
     new_question = Question(id=question.id,
                             question_text=question.question,
