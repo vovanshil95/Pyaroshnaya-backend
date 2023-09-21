@@ -182,7 +182,7 @@ async def gpt_response(category: CategoryId,
     questions_data = await get_question_data(user_token.id, session, category.categoryId)
     questions = get_question_schemas(questions_data)
     for question in questions:
-        if question.isRequired and not question.answers and not question.answer:
+        if question.isRequired and ((not question.answers and not question.answer) or question.answer == ''):
             raise HTTPException(status_code=400, detail='required fields not filled')
 
     prompt = (await session.execute(select(Prompt.text)
