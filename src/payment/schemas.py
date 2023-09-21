@@ -5,8 +5,9 @@ from pydantic import BaseModel
 from utils import BaseResponse
 
 
-class ProductId(BaseModel):
+class ProductCode(BaseModel):
     id: uuid.UUID
+    promoCode: str | None
 
 
 class Amount(BaseModel):
