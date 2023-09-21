@@ -39,30 +39,19 @@ async def get_url(product: ProductId,
         description=product_model.description
     ).dict()
 
-    payment_id = uuid.uuid4()
-
     async with httpx.AsyncClient() as client:
         response = await client.post(
             'https://api.yookassa.ru/v3/payments',
             headers={'Content-Type': 'application/json',
-                     'Idempotence-Key': payment_id.hex},
+                     'Idempotence-Key': uuid.uuid4()},
             auth=(SHOP_ID, SHOP_KEY),
             data=payment
         )
         if response.status_code >= 400:
             raise HTTPException(status_code=502, detail='Payment service is unavailable')
-        webhook_response = await client.post(
-            'https://api.yookassa.ru/v3/webhooks',
-            headers={'Authorization': f'Bearer {SHOP_OAUTH_TOKEN}',
-                     'Idempotence-Key': payment_id.hex,
-                     'Content-Type': 'application/json'},
-            data={'event': 'payment.succeeded',
-                  'url': 'https://app.aipr.pro/pay/succeeded'},
-        )
-        if webhook_response.status_code >= 400:
-            raise HTTPException(status_code=502, detail='Payment service is unavailable')
 
     url = response.json()['confirmation']['confirmation_url']
+    payment_id = uuid.UUID(hex=response.json()['id'])
 
     session.add(PaymentModel(
         id=payment_id,
