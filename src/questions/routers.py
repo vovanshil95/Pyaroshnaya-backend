@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select, func, and_, update, delete
 from sqlalchemy.dialects.postgresql import aggregate_order_by
 from sqlalchemy.ext.asyncio import AsyncSession
-import aiohttp
+import httpx
 
 from auth.routes import get_access_token
 from auth.utils import AccessTokenPayload
@@ -88,20 +88,22 @@ def get_gpt_send():
 
         filled_prompt = await get_filled_prompt(questions, prompt, session)
 
-        async with aiohttp.ClientSession() as session:
-            async with session.post('https://api.openai.com/v1/chat/completions',
-                                    headers={
-                                        'Content-Type': 'application/json',
-                                        'Authorization': f'Bearer {OPENAI_API_KEY}'
-                                    },
-                                    json={
-                                        'model': 'gpt-4',
-                                        'messages': [{'role': 'user', 'content': filled_prompt}]
-                                    }) as response:
-                response = await response.json()
-                response = response['choices'][0]['message']['content']
+        max_time_wait = 300
 
-        return response
+        async with httpx.AsyncClient(timeout=httpx.Timeout(max_time_wait)) as client:
+            response = await client.post(
+                'https://api.openai.com/v1/chat/completions',
+                headers={
+                    'Content-Type': 'application/json',
+                    'Authorization': f'Bearer {OPENAI_API_KEY}'
+                },
+                json={
+                    'model': 'gpt-4',
+                    'messages': [{'role': 'user', 'content': filled_prompt}]
+                }
+            )
+
+        return response.json()['choices'][0]['message']['content']
 
     return get_gpt_response
 
