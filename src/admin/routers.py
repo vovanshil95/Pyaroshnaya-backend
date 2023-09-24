@@ -86,17 +86,19 @@ async def get_products_(session: AsyncSession) -> ProductsResponse:
                                       .where(ProductModel.active)
                                       .order_by(ProductModel.price_rubbles))).scalars().all()
 
-    categories_dict = {category.category_id: [] for category in categories}
+    categories_dict = {product.id: [] for product in products}
     promos_dict = {product.id: [] for product in products}
     for category in categories:
-        categories_dict[category.product_id].append(category.category_id)
+        if categories_dict.get(category.product_id) is not None:
+            categories_dict[category.product_id].append(category.category_id)
     for promo in promos:
-        promos_dict[promo.product_id].append(PromoCodeSchema(
-            id=promo.id,
-            code=promo.code,
-            discountAbsolute=promo.discount_absolute,
-            discountPercent=promo.discount_percent
-        ))
+        if promos_dict.get(promo.product_id) is not None:
+            promos_dict[promo.product_id].append(PromoCodeSchema(
+                id=promo.id,
+                code=promo.code,
+                discountAbsolute=promo.discount_absolute,
+                discountPercent=promo.discount_percent
+            ))
 
     products = [ProductSchema(
         id=product.id,
