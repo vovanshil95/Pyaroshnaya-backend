@@ -2,6 +2,7 @@ import asyncio
 import uuid
 import random
 import string
+from datetime import timedelta, datetime
 
 from sqlalchemy import select, update, delete
 
@@ -9,6 +10,7 @@ import bot.config_ as CONSTS
 from auth.models import Auth, RefreshToken
 from auth.utils import encrypt, generate_salted_password
 from database import async_session_maker
+from payment.models import Purchase, Product
 from users.models import User
 from questions.models import Question, Answer
 
@@ -40,6 +42,17 @@ async def add_user(chat_id: int):
                                     user_id=user_id,
                                     text=None,
                                     interaction_id=None) for question in questions])
+
+            product = (await session.execute(select(Product).where(Product.title == 'free'))).scalars().first()
+
+            session.add(Purchase(
+                id=uuid.uuid4(),
+                user_id=user_id,
+                product_id=product.id,
+                expiration_time=datetime.now() + timedelta(days=product.availability_duration_days)
+                if product.availability_duration_days is not None else None,
+                remaining_uses=product.usage_count
+            ))
 
         else:
 

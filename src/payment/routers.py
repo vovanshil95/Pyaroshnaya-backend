@@ -99,7 +99,8 @@ async def confirm(request: Request,
             id=uuid.uuid4(),
             user_id=payment.user_id,
             product_id=payment.product_id,
-            expiration_time=datetime.now() + timedelta(days=product.availability_duration_days),
+            expiration_time=datetime.now() + timedelta(days=product.availability_duration_days)
+            if product.availability_duration_days is not None else None,
             remaining_uses=product.usage_count
         ))
 
