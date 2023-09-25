@@ -11,6 +11,7 @@ from admin.utils import get_products_
 from auth.routes import get_admin_token
 from auth.utils import AccessTokenPayload
 from database import get_async_session
+from history.schemas import UserHistory, UsersHistoryResponse
 from questions.routers import get_question_schemas, filled_prompt_generator, get_question_data
 from questions.schemas import AdminQuestion, AdminQuestionsResponse, FullOption, AdminCategoriesResponse, AdminCategory, \
     UnfilledPromptResponse, PromptResponse
@@ -24,6 +25,7 @@ from payment.schemas import AdminProduct as AdminProductSchema
 from payment.models import ProductCategory
 from payment.models import Product as ProductModel
 from payment.models import PromoCode as PromoCodeModel
+from history.routers import get_history
 
 router = APIRouter(prefix='/admin',
                    tags=['Admin'])
@@ -81,7 +83,7 @@ async def change_add_question(question: AdminQuestion,
     old_question = await session.get(Question, question.id)
     if old_question is not None:
         await session.delete(old_question)
-        await session.flush()
+        await session.commit()
 
     new_question = Question(id=question.id,
                             question_text=question.question,
@@ -195,6 +197,18 @@ async def get_prompt(categoryId: uuid.UUID,
 
     return PromptResponse(message='status success', questions=questions, filledPrompt=filled_prompt)
 
+@router.get('/history', dependencies=[Depends(get_admin_token)])
+async def get_users_history(session: AsyncSession=Depends(get_async_session)):
+    users = (await session.execute(select(User))).scalars().all()
+
+    return UsersHistoryResponse(
+        message='status success',
+        data=[UserHistory(user_id=user.id,
+                           history=(await get_history(session=session,
+                                                      user_id=user.id)).data
+                           ) for user in users]
+    )  
+  
 @router.post('/product', dependencies=[Depends(get_admin_token)])
 async def add_change_product(product: AdminProductSchema,
                              session: AsyncSession=Depends(get_async_session)) -> AdminProductsResponse:
