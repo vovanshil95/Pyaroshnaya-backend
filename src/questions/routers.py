@@ -12,6 +12,7 @@ import aiohttp
 
 from auth.routes import get_access_token
 from auth.utils import AccessTokenPayload
+from payment.utils import paywall_manager, paywall_manager_test
 from questions.models import Category as CategoryModel, Option, Prompt
 from questions.models import Answer as AnswerModel
 from questions.models import Question as QuestionModel
@@ -23,7 +24,7 @@ from questions.schemas import CategoriesResponse, QuestionsResponse, CategoryId
 from history.models import GptInteraction
 from database import get_async_session
 from utils import BaseResponse, try_uuid
-from config import OPENAI_API_KEY
+from config import OPENAI_API_KEY, PAYWALL_ON
 
 router = APIRouter(prefix='/question',
                    tags=['Questions'])
@@ -172,21 +173,22 @@ async def get_questions(categoryId: uuid.UUID | None=None,
                                                                                     session,
                                                                                     categoryId)))
 
-@router.post('/response', responses={200: {'model': GptAnswerResponse},
-                                           400: {'model': BaseResponse, 'description': 'required fields not filled'},
-                                           401: {'model': BaseResponse, 'description': 'User is not authorized'}})
-async def gpt_response(category: CategoryId,
+@router.post('/response',
+             responses={200: {'model': GptAnswerResponse},
+                        400: {'model': BaseResponse, 'description': 'required fields not filled'},
+                        401: {'model': BaseResponse, 'description': 'User is not authorized'}})
+async def gpt_response(category_id: uuid.UUID=Depends(paywall_manager if PAYWALL_ON else paywall_manager_test),
                        user_token: AccessTokenPayload=Depends(get_access_token),
                        session: AsyncSession=Depends(get_async_session),
                        gpt_send: Callable=Depends(get_gpt_send)) -> GptAnswerResponse:
-    questions_data = await get_question_data(user_token.id, session, category.categoryId)
+    questions_data = await get_question_data(user_token.id, session, category_id)
     questions = get_question_schemas(questions_data)
     for question in questions:
         if question.isRequired and not question.answers and not question.answer:
             raise HTTPException(status_code=400, detail='required fields not filled')
 
     prompt = (await session.execute(select(Prompt.text)
-                                    .where(Prompt.category_id == category.categoryId)
+                                    .where(Prompt.category_id == category_id)
                                     .order_by(Prompt.order_index))).scalars().all()
 
     response = await gpt_send(questions, prompt, session)
