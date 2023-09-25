@@ -127,7 +127,7 @@ async def get_products(session: AsyncSession=Depends(get_async_session)) -> Prod
 
 @router.post('/promo')
 async def check_promo(product: ProductCode,
-                      session: AsyncSession=Depends(get_async_session)):
+                      session: AsyncSession=Depends(get_async_session)) -> NewPrice:
 
     product_model = await session.get(ProductModel, product.id)
 
