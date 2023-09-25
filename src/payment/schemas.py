@@ -41,6 +41,11 @@ class Product(BaseModel):
     availabilityDurationDays: int | None
     usageCount: int | None
     description: str
+    categoryIds: list[uuid.UUID]
+
+class AdminProduct(Product):
     returnUrl: str
     promoCodes: list[PromoCode]
-    categoryIds: list[uuid.UUID]
+
+class NewPrice(BaseResponse):
+    newPrice: int

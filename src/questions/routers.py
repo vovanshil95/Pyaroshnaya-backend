@@ -20,7 +20,7 @@ from questions.schemas import Question as QuestionSchema, GptAnswerResponse, New
 from questions.schemas import Category as CategorySchema
 from questions.schemas import Answer as AnswerSchema
 from questions.schemas import Option as OptionSchema
-from questions.schemas import CategoriesResponse, QuestionsResponse, CategoryId
+from questions.schemas import CategoriesResponse, QuestionsResponse
 from history.models import GptInteraction
 from database import get_async_session
 from utils import BaseResponse, try_uuid

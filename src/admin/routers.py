@@ -2,12 +2,12 @@ import uuid
 from typing import Callable
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import select, func, delete, text
+from sqlalchemy import select, func, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.dialects.postgresql import aggregate_order_by
-from sqlalchemy.orm import aliased
 
-from admin.schemas import ProductsResponse
+from admin.schemas import AdminProductsResponse
+from admin.utils import get_products_
 from auth.routes import get_admin_token
 from auth.utils import AccessTokenPayload
 from database import get_async_session
@@ -20,8 +20,7 @@ from questions.models import Prompt as PromptModel, Answer, Prompt
 from questions.models import Question, Option
 from questions.models import Category as CategoryModel
 from users.models import User
-from payment.schemas import Product as ProductSchema
-from payment.schemas import PromoCode as PromoCodeSchema
+from payment.schemas import AdminProduct as AdminProductSchema
 from payment.models import ProductCategory
 from payment.models import Product as ProductModel
 from payment.models import PromoCode as PromoCodeModel
@@ -75,46 +74,6 @@ async def get_admin_questions(session: AsyncSession,
                         for question in questions]
 
     return AdminQuestionsResponse(message='status success', questions=question_schemas)
-
-async def get_products_(session: AsyncSession) -> ProductsResponse:
-
-    categories = (await session.execute(select(ProductCategory)
-                                        .order_by(ProductCategory.category_id))).scalars().all()
-    promos = (await session.execute(select(PromoCodeModel)
-                                    .order_by(PromoCodeModel.id))).scalars().all()
-    products = (await session.execute(select(ProductModel)
-                                      .where(ProductModel.active)
-                                      .order_by(ProductModel.price_rubbles))).scalars().all()
-
-    categories_dict = {product.id: [] for product in products}
-    promos_dict = {product.id: [] for product in products}
-    for category in categories:
-        if categories_dict.get(category.product_id) is not None:
-            categories_dict[category.product_id].append(category.category_id)
-    for promo in promos:
-        if promos_dict.get(promo.product_id) is not None:
-            promos_dict[promo.product_id].append(PromoCodeSchema(
-                id=promo.id,
-                code=promo.code,
-                discountAbsolute=promo.discount_absolute,
-                discountPercent=promo.discount_percent
-            ))
-
-    products = [ProductSchema(
-        id=product.id,
-        title=product.title,
-        priceRubbles=product.price_rubbles,
-        availabilityDurationDays=product.availability_duration_days,
-        usageCount=product.usage_count,
-        description=product.description,
-        returnUrl=product.return_url,
-        promoCodes=promos_dict[product.id],
-        categoryIds=categories_dict[product.id]
-    ) for product in products]
-
-    return ProductsResponse(message='status success',
-                            data=products)
-
 
 @router.post('/question', dependencies=[Depends(get_admin_token)])
 async def change_add_question(question: AdminQuestion,
@@ -237,8 +196,8 @@ async def get_prompt(categoryId: uuid.UUID,
     return PromptResponse(message='status success', questions=questions, filledPrompt=filled_prompt)
 
 @router.post('/product', dependencies=[Depends(get_admin_token)])
-async def add_change_product(product: ProductSchema,
-                             session: AsyncSession=Depends(get_async_session)) -> ProductsResponse:
+async def add_change_product(product: AdminProductSchema,
+                             session: AsyncSession=Depends(get_async_session)) -> AdminProductsResponse:
     product_model = await session.get(ProductModel, product.id)
     if product_model is not None:
         product_model.description = product.description
@@ -277,12 +236,12 @@ async def add_change_product(product: ProductSchema,
 
 
 @router.get('/product', dependencies=[Depends(get_admin_token)])
-async def get_products(session: AsyncSession=Depends(get_async_session)) -> ProductsResponse:
+async def get_products(session: AsyncSession=Depends(get_async_session)) -> AdminProductsResponse:
     return await get_products_(session=session)
 
 @router.delete('/product', dependencies=[Depends(get_admin_token)])
 async def delete_product(productId: uuid.UUID,
-                         session: AsyncSession=Depends(get_async_session)) -> ProductsResponse:
+                         session: AsyncSession=Depends(get_async_session)) -> AdminProductsResponse:
     product = await session.get(ProductModel, productId)
     product.active = False
     return await get_products_(session=session)
