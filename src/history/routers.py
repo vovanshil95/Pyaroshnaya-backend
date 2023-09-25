@@ -19,7 +19,7 @@ from utils import BaseResponse, IdSchema, try_uuid
 router = APIRouter(prefix='/history',
                    tags=['History'])
 
-async def get_history(session: AsyncSession, user_id: uuid.UUID, category_id: uuid.UUID) -> HistoryResponse:
+async def get_history(session: AsyncSession, user_id: uuid.UUID, category_id: uuid.UUID=None) -> HistoryResponse:
     interactions = (await session.execute(
         select(text('id'),
                text('time_happened'),
@@ -46,7 +46,7 @@ async def get_history(session: AsyncSession, user_id: uuid.UUID, category_id: uu
                      .group_by(GptInteractionModel.id)
                      .select_from(GptInteractionModel)
                      .subquery(name='interaction'))
-        .where(text(f"interaction.category_id = '{category_id}'"))
+        .where(text(f"interaction.category_id = '{category_id}'") if category_id is not None else True)
         .group_by(text('(interaction.id)'))
         .group_by(text('interaction.time_happened'))
         .group_by(text('interaction.response'))

@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select, func, and_, update, delete
 from sqlalchemy.dialects.postgresql import aggregate_order_by
 from sqlalchemy.ext.asyncio import AsyncSession
-import aiohttp
+import httpx
 
 from auth.routes import get_access_token
 from auth.utils import AccessTokenPayload
@@ -89,20 +89,22 @@ def get_gpt_send():
 
         filled_prompt = await get_filled_prompt(questions, prompt, session)
 
-        async with aiohttp.ClientSession() as session:
-            async with session.post('https://api.openai.com/v1/chat/completions',
-                                    headers={
-                                        'Content-Type': 'application/json',
-                                        'Authorization': f'Bearer {OPENAI_API_KEY}'
-                                    },
-                                    json={
-                                        'model': 'gpt-4',
-                                        'messages': [{'role': 'user', 'content': filled_prompt}]
-                                    }) as response:
-                response = await response.json()
-                response = response['choices'][0]['message']['content']
+        max_time_wait = 300
 
-        return response
+        async with httpx.AsyncClient(timeout=httpx.Timeout(max_time_wait)) as client:
+            response = await client.post(
+                'https://api.openai.com/v1/chat/completions',
+                headers={
+                    'Content-Type': 'application/json',
+                    'Authorization': f'Bearer {OPENAI_API_KEY}'
+                },
+                json={
+                    'model': 'gpt-4',
+                    'messages': [{'role': 'user', 'content': filled_prompt}]
+                }
+            )
+
+        return response.json()['choices'][0]['message']['content']
 
     return get_gpt_response
 
@@ -184,7 +186,7 @@ async def gpt_response(category_id: uuid.UUID=Depends(paywall_manager if PAYWALL
     questions_data = await get_question_data(user_token.id, session, category_id)
     questions = get_question_schemas(questions_data)
     for question in questions:
-        if question.isRequired and not question.answers and not question.answer:
+        if question.isRequired and ((not question.answers and not question.answer) or question.answer == ''):
             raise HTTPException(status_code=400, detail='required fields not filled')
 
     prompt = (await session.execute(select(Prompt.text)
@@ -243,6 +245,7 @@ async def answer(answer: AnswerSchema,
                 select(AnswerModel)
                 .where(and_(AnswerModel.question_id == answer.questionId,
                             AnswerModel.user_id == user_token.id,
+                            AnswerModel.template_id.is_(None),
                             AnswerModel.interaction_id.is_(None)))
         )).scalars().first()
         answer_model.text = answer.answer
@@ -250,6 +253,7 @@ async def answer(answer: AnswerSchema,
         await session.execute(delete(AnswerModel).where(and_(
             AnswerModel.question_id == answer.questionId,
             AnswerModel.user_id == user_token.id,
+            AnswerModel.template_id.is_(None),
             AnswerModel.interaction_id.is_(None)
         )))
         session.add_all(list(map(lambda a:
@@ -258,7 +262,7 @@ async def answer(answer: AnswerSchema,
                                              text=a,
                                              user_id=user_token.id),
                                  answer.answers)))
-    await session.flush()
+    await session.commit()
     return QuestionsResponse(message='status success',
                              questions=get_question_schemas(
                                  await get_question_data(user_id=user_token.id,
@@ -287,8 +291,7 @@ async def answer_all_questions(new_answers: NewAnswers,
     for answer in answers:
         answer.text = answer_texts[answer.question_id]
 
-    session.add_all(answers)
-    await session.flush()
+    await session.commit()
 
     return QuestionsResponse(message='status success',
                              questions=get_question_schemas(
