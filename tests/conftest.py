@@ -15,13 +15,14 @@ sys.path.append(sys.path[0].replace('tests', 'src'))
 from main import app
 from database import get_db, get_async_session
 from config import TEST_DB_HOST, TEST_DB_PORT, TEST_DB_NAME, TEST_DB_USER, TEST_DB_PASS
-from auth.utils import encrypt, generate_salted_password
+from auth.utils import generate_salted_password
 from users.models import User
 from auth.models import Base, Auth, RefreshToken
 from questions.models import Category, Answer, Prompt, Option
 from questions.models import Question as QuestionModel
 from questions.routers import get_gpt_send, get_filled_prompt
 from questions.schemas import Question as QuestionSchema
+from payment.utils import paywall_manager, paywall_manager_test
 
 _, test_engine, async_session_maker_test, get_async_session_test =  get_db(TEST_DB_HOST, TEST_DB_PORT, TEST_DB_NAME, TEST_DB_USER, TEST_DB_PASS)
 
@@ -36,6 +37,7 @@ def get_gpt_send_test():
 
 app.dependency_overrides[get_async_session] = get_async_session_test
 app.dependency_overrides[get_gpt_send] = get_gpt_send_test
+app.dependency_overrides[paywall_manager] = paywall_manager_test
 
 @pytest.fixture(autouse=True, scope='session')
 async def prepare_database():

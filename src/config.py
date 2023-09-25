@@ -44,3 +44,5 @@ YOOKASSA_NETWORKS = [
     ipaddress.ip_network('77.75.156.11'),
     ipaddress.ip_network('77.75.156.35'),
 ]
+
+PAYWALL_ON = bool(int(os.environ.get('PAYWALL_ON')))

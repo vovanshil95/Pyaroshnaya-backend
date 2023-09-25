@@ -8,13 +8,15 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 import httpx
 
+from admin.schemas import ProductsResponse
+from admin.utils import get_products_
 from auth.routes import get_access_token
 from auth.utils import AccessTokenPayload
 from database import get_async_session
 from payment.models import Purchase, PromoCode
 from payment.models import Product as ProductModel
 from payment.models import Payment as PaymentModel
-from payment.schemas import ProductCode, Amount, Confirmation, ConfirmationUrl
+from payment.schemas import ProductCode, Amount, Confirmation, ConfirmationUrl, NewPrice
 from payment.schemas import Payment as PaymentSchema
 from config import SHOP_ID, SHOP_KEY, YOOKASSA_NETWORKS
 from utils import BaseResponse
@@ -22,21 +24,17 @@ from utils import BaseResponse
 router = APIRouter(prefix='/pay',
                    tags=['Payment'])
 
-@router.post('/url')
-async def get_url(product: ProductCode,
-                  user_token: AccessTokenPayload=Depends(get_access_token),
-                  session: AsyncSession=Depends(get_async_session)) -> ConfirmationUrl:
-
-    product_model = await session.get(ProductModel, product.id)
-
+async def get_promo_price(product_model: ProductModel,
+                          session: AsyncSession,
+                          product_code) -> int:
     price = product_model.price_rubbles
 
-    if product.promoCode is not None:
+    if product_code.promoCode is not None:
         promo_code = (await session.execute(
             select(PromoCode)
             .where(and_(
-                PromoCode.product_id == product.id,
-                PromoCode.code == product.promoCode
+                PromoCode.product_id == product_code.id,
+                PromoCode.code == product_code.promoCode
             )))
         ).scalars().first()
         if promo_code is None:
@@ -46,6 +44,22 @@ async def get_url(product: ProductCode,
                 if promo_code.discount_absolute is not None else price
             price = int(price * (1 - promo_code.discount_percent / 100)) \
                 if promo_code.discount_percent is not None else price
+
+    return price
+
+
+@router.post('/url')
+async def get_url(product: ProductCode,
+                  user_token: AccessTokenPayload=Depends(get_access_token),
+                  session: AsyncSession=Depends(get_async_session)) -> ConfirmationUrl:
+
+    product_model = await session.get(ProductModel, product.id)
+
+    price = await get_promo_price(
+        product_model=product_model,
+        product_code=product,
+        session=session
+    )
 
     payment = PaymentSchema(
         amount=Amount(
@@ -105,3 +119,23 @@ async def confirm(request: Request,
         ))
 
     return BaseResponse(message='status success')
+
+@router.get('/products', dependencies=[Depends(get_access_token)])
+async def get_products(session: AsyncSession=Depends(get_async_session)) -> ProductsResponse:
+    return await get_products_(session=session,
+                               admin=False)
+
+@router.post('/promo')
+async def check_promo(product: ProductCode,
+                      session: AsyncSession=Depends(get_async_session)):
+
+    product_model = await session.get(ProductModel, product.id)
+
+    price = await get_promo_price(
+        product_model=product_model,
+        product_code=product,
+        session=session
+    )
+
+    return NewPrice(message='status succes',
+                    newPrice=price)
