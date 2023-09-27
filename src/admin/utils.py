@@ -48,8 +48,12 @@ async def get_products_(session: AsyncSession, admin: bool=True) -> AdminProduct
         description=product.description,
         returnUrl=product.return_url if admin else None,
         promoCodes=promos_dict[product.id] if admin else None,
-        categoryIds=categories_dict[product.id]
-    ) for product in products if product.title != 'free' or admin]
+        isPromo=product.is_promo if admin else None,
+        categoryIds=categories_dict[product.id] if product.categories_size is None else None,
+        expandable=product.expandable,
+        categoriesSize=product.categories_size,
+        expanding=product.expanding
+    ) for product in products if (product.title != 'free' and not product.is_promo) or admin]
 
     return ResponseClass(message='status success',
                          data=products)
