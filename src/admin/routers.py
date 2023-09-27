@@ -220,6 +220,10 @@ async def add_change_product(product: AdminProductSchema,
         product_model.availability_duration_days = product.availabilityDurationDays
         product_model.title = product.title
         product_model.usage_count = product.usageCount
+        product_model.expandable = product.expandable
+        product_model.is_promo = product.isPromo
+        product_model.categories_size = product.categoriesSize
+        product_model.expanding = product.expanding
         await session.execute(delete(PromoCodeModel).where(PromoCodeModel.product_id == product.id))
         await session.execute(delete(ProductCategory).where(ProductCategory.product_id == product.id))
     else:
@@ -231,13 +235,18 @@ async def add_change_product(product: AdminProductSchema,
             title=product.title,
             active=True,
             availability_duration_days=product.availabilityDurationDays,
-            usage_count=product.usageCount
+            usage_count=product.usageCount,
+            is_promo=product.isPromo,
+            categories_size=product.categoriesSize,
+            expandable=product.expandable,
+            expanding=product.expanding
         ))
-    await session.flush()
-    session.add_all([ProductCategory(
-        product_id=product.id,
-        category_id=category_id
-    ) for category_id in product.categoryIds])
+    if product.categoryIds is not None:
+        await session.flush()
+        session.add_all([ProductCategory(
+            product_id=product.id,
+            category_id=category_id
+        ) for category_id in product.categoryIds])
     session.add_all([PromoCodeModel(
         id=promo_code.id,
         code=promo_code.code,

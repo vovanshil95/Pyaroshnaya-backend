@@ -12,7 +12,7 @@ import httpx
 
 from auth.routes import get_access_token
 from auth.utils import AccessTokenPayload
-from payment.utils import paywall_manager, paywall_manager_test
+from payment.utils import Paywall, PaywallManager, PaywallManagerTest
 from questions.models import Category as CategoryModel, Option, Prompt
 from questions.models import Answer as AnswerModel
 from questions.models import Question as QuestionModel
@@ -179,21 +179,23 @@ async def get_questions(categoryId: uuid.UUID | None=None,
              responses={200: {'model': GptAnswerResponse},
                         400: {'model': BaseResponse, 'description': 'required fields not filled'},
                         401: {'model': BaseResponse, 'description': 'User is not authorized'}})
-async def gpt_response(category_id: uuid.UUID=Depends(paywall_manager if PAYWALL_ON else paywall_manager_test),
+async def gpt_response(paywall_manager: Paywall=Depends(PaywallManager() if PAYWALL_ON else PaywallManagerTest()),
                        user_token: AccessTokenPayload=Depends(get_access_token),
                        session: AsyncSession=Depends(get_async_session),
                        gpt_send: Callable=Depends(get_gpt_send)) -> GptAnswerResponse:
-    questions_data = await get_question_data(user_token.id, session, category_id)
+    questions_data = await get_question_data(user_token.id, session, paywall_manager.category_id)
     questions = get_question_schemas(questions_data)
     for question in questions:
         if question.isRequired and ((not question.answers and not question.answer) or question.answer == ''):
             raise HTTPException(status_code=400, detail='required fields not filled')
 
     prompt = (await session.execute(select(Prompt.text)
-                                    .where(Prompt.category_id == category_id)
+                                    .where(Prompt.category_id == paywall_manager.category_id)
                                     .order_by(Prompt.order_index))).scalars().all()
 
     response = await gpt_send(questions, prompt, session)
+
+    paywall_manager.symbols_in_response = len(response)
 
     interaction_id = uuid.uuid4()
     answer_ids = []
