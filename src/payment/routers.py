@@ -43,12 +43,12 @@ async def get_promo_price(product_model: ProductModel,
         if promo_code is None:
             raise HTTPException(status_code=404, detail='promo_code not found')
         else:
-            price = max(price - promo_code.discount_absolute, 0) \
+            price = price - promo_code.discount_absolute \
                 if promo_code.discount_absolute is not None else price
             price = int(price * (1 - promo_code.discount_percent / 100)) \
                 if promo_code.discount_percent is not None else price
 
-    return price
+    return max(price, 1)
 
 async def get_payment_url(product_model: ProductModel,
                           product: ProductCodeCategories,
