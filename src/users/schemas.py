@@ -3,6 +3,7 @@ import uuid
 from pydantic import BaseModel
 
 from config import DEFAULT_PHONE
+from payment.schemas import UserAccess
 from utils import BaseResponse
 
 
@@ -17,6 +18,7 @@ class UserProfile(BaseModel):
     username: str
     company: str | None
     theme: str
+    access: UserAccess
 
 class UserProfileResponse(BaseResponse):
     data: UserProfile

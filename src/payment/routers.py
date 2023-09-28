@@ -5,7 +5,7 @@ from operator import and_
 from typing import Tuple
 
 from fastapi import APIRouter, Depends, Request, HTTPException
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 import httpx
 
@@ -177,6 +177,12 @@ async def confirm(request: Request,
                                           category_id=category_id)
                          for category_id in categories])
         await session.delete(payment)
+        free_product = (await session.execute(select(ProductModel).where(ProductModel.title == 'free'))).scalars().first()
+        await session.execute(
+            delete(Purchase)
+            .where(and_(Purchase.user_id == payment.user_id,
+                        Purchase.product_id != free_product.id))
+            )
         session.add(Purchase(
             id=purchase_id,
             user_id=payment.user_id,

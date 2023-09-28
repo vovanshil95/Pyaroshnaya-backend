@@ -1,4 +1,5 @@
 import uuid
+from datetime import datetime
 
 from pydantic import BaseModel
 
@@ -66,3 +67,8 @@ class ProductExpand(BaseModel):
     productToExpand: uuid.UUID
     expandingProduct: uuid.UUID
     promoCode: str | None
+
+class UserAccess(BaseModel):
+    remainingUses: int | None
+    expirationTime: datetime | None
+    categoryIds: list[uuid.UUID]
