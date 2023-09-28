@@ -11,7 +11,7 @@ class ProductCode(BaseModel):
     promoCode: str | None
 
 class ProductCodeCategories(ProductCode):
-    categories: list[uuid.UUID]
+    categories: list[uuid.UUID] | None
 
 class Amount(BaseModel):
     value: str
