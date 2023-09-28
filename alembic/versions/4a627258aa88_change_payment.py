@@ -35,9 +35,9 @@ def upgrade() -> None:
     op.add_column('payment', sa.Column('product_to_expend_id', sa.UUID(), nullable=True))
     op.create_foreign_key(None, 'payment', 'product', ['product_to_expend_id'], ['id'], ondelete='cascade')
     op.add_column('product', sa.Column('categories_size', sa.Integer(), nullable=True))
-    op.add_column('product', sa.Column('expandable', sa.BOOLEAN(), nullable=False, server_default='1'))
-    op.add_column('product', sa.Column('is_promo', sa.BOOLEAN(), nullable=False, server_default='0'))
-    op.add_column('product', sa.Column('expanding', sa.BOOLEAN(), nullable=False, server_default='0'))
+    op.add_column('product', sa.Column('expandable', sa.BOOLEAN(), nullable=False))
+    op.add_column('product', sa.Column('is_promo', sa.BOOLEAN(), nullable=False))
+    op.add_column('product', sa.Column('expanding', sa.BOOLEAN(), nullable=False))
     # ### end Alembic commands ###
 
 
