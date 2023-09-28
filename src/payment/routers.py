@@ -194,14 +194,15 @@ async def get_products(session: AsyncSession=Depends(get_async_session)) -> Prod
                                admin=False)
 
 @router.get('/promo', dependencies=[Depends(get_access_token)])
-async def check_promo(product: ProductCode,
+async def check_promo(productId: uuid.UUID,
+                      promoCode: str,
                       session: AsyncSession=Depends(get_async_session)) -> NewPrice:
-    if product.id is not None:
-        product_model = await session.get(ProductModel, product.id)
+    if productId is not None:
+        product_model = await session.get(ProductModel, productId)
 
         price = await get_promo_price(
             product_model=product_model,
-            product_code=product,
+            product_code=ProductCode(id=productId, promoCode=promoCode),
             session=session
         )
 
