@@ -184,6 +184,15 @@ async def confirm(request: Request,
                         Purchase.product_id != free_product.id))
             )
         session.add(Purchase(
+                id=uuid.uuid4(),
+                user_id=payment.user_id,
+                product_id=free_product.id.id,
+                expiration_time=datetime.now() + timedelta(days=product.availability_duration_days)
+                if product.availability_duration_days is not None else None,
+                remaining_uses=None
+            ))
+
+        session.add(Purchase(
             id=purchase_id,
             user_id=payment.user_id,
             product_id=payment.product_id,
