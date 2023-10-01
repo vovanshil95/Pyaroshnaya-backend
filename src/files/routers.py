@@ -4,12 +4,12 @@ import shutil
 from fastapi import APIRouter, UploadFile, File, Depends
 from fastapi.responses import FileResponse
 
-from auth.routes import get_admin_token
+from auth.routes import get_access_token
 
 router = APIRouter(prefix='/files',
                    tags=['Files'])
 
-@router.post('', dependencies=[Depends(get_admin_token)])
+@router.post('', dependencies=[Depends(get_access_token)])
 async def post_file(file: UploadFile = File(...)):
     with open(f"../storage/{file.filename}", "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
