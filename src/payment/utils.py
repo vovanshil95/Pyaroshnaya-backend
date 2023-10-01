@@ -27,7 +27,7 @@ class PaywallManager(Paywall):
 
         purchase = (await session.execute(
             select(Purchase)
-            .join(ProductCategory)
+            .join(PurchaseCategory)
             .join(Category)
             .where(and_(Purchase.user_id == user_token.id,
                         or_(Purchase.expiration_time.is_(None),
