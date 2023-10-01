@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from auth.routes import get_access_token
 from auth.utils import AccessTokenPayload
 from database import get_async_session
-from payment.models import ProductCategory, Purchase, PurchaseCategory
+from payment.models import ProductCategory, Purchase, PurchaseCategory, Product
 from questions.models import Category
 from questions.schemas import CategoryId
 
@@ -28,27 +28,28 @@ class PaywallManager(Paywall):
         purchase = (await session.execute(
             select(Purchase)
             .join(PurchaseCategory)
-            .join(Category)
+            .join(Category, Category.parent_id==PurchaseCategory.category_id)
             .where(and_(Purchase.user_id == user_token.id,
                         or_(Purchase.expiration_time.is_(None),
                             Purchase.expiration_time > datetime.now()),
                         or_(Purchase.remaining_uses.is_(None),
                             Purchase.remaining_uses > 0),
-                        Category.parent_id == category_id.categoryId))
+                        Category.id == category_id.categoryId))
         )).scalars().first()
 
         if purchase is None:
             purchase = (await session.execute(
                 select(Purchase)
-                .join(PurchaseCategory)
-                .join(Category)
+                .join(Product)
+                .join(ProductCategory)
+                .join(Category, Category.parent_id==ProductCategory.category_id)
                 .where(and_(
                     Purchase.user_id == user_token.id,
                     or_(Purchase.expiration_time.is_(None),
                         Purchase.expiration_time > datetime.now()),
                     or_(Purchase.remaining_uses.is_(None),
                         Purchase.remaining_uses > 0),
-                    Category.parent_id == category_id.categoryId
+                    Category.id == category_id.categoryId
                     ))
             )).scalars().first()
 

@@ -27,6 +27,7 @@ from utils import BaseResponse
 router = APIRouter(prefix='/pay',
                    tags=['Payment'])
 
+
 async def get_promo_price(product_model: ProductModel,
                           session: AsyncSession,
                           product_code) -> int:
@@ -39,7 +40,7 @@ async def get_promo_price(product_model: ProductModel,
                 PromoCode.product_id == product_code.id,
                 PromoCode.code == product_code.promoCode
             )))
-        ).scalars().first()
+                      ).scalars().first()
         if promo_code is None:
             raise HTTPException(status_code=404, detail='promo_code not found')
         else:
@@ -50,11 +51,12 @@ async def get_promo_price(product_model: ProductModel,
 
     return max(price, 1)
 
+
 async def get_payment_url(product_model: ProductModel,
                           product: ProductCodeCategories,
                           user_id: uuid.UUID,
                           session: AsyncSession,
-                          product_to_expend_id: uuid.UUID=None) -> Tuple[uuid.UUID, str]:
+                          product_to_expend_id: uuid.UUID = None) -> Tuple[uuid.UUID, str]:
     price = await get_promo_price(
         product_model=product_model,
         product_code=product,
@@ -100,9 +102,8 @@ async def get_payment_url(product_model: ProductModel,
 
 @router.post('/url')
 async def get_url(product: ProductCodeCategories,
-                  user_token: AccessTokenPayload=Depends(get_access_token),
-                  session: AsyncSession=Depends(get_async_session)) -> ConfirmationUrl:
-
+                  user_token: AccessTokenPayload = Depends(get_access_token),
+                  session: AsyncSession = Depends(get_async_session)) -> ConfirmationUrl:
     product_model = await session.get(ProductModel, product.id)
 
     payment_id, url = await get_payment_url(
@@ -123,11 +124,11 @@ async def get_url(product: ProductCodeCategories,
     return ConfirmationUrl(message='status success',
                            url=url)
 
+
 @router.post('/expand')
 async def expand(products: ProductExpand,
-                 session: AsyncSession=Depends(get_async_session),
-                 user_token: AccessTokenPayload=Depends(get_access_token)) -> ConfirmationUrl:
-
+                 session: AsyncSession = Depends(get_async_session),
+                 user_token: AccessTokenPayload = Depends(get_access_token)) -> ConfirmationUrl:
     product_model = await session.get(ProductModel, products.expandingProduct)
     product_to_expand = await session.get(ProductModel, products.productToExpand)
     if not product_to_expand.expandable:
@@ -146,10 +147,11 @@ async def expand(products: ProductExpand,
     return ConfirmationUrl(message='status success',
                            url=url)
 
+
 @router.post('/succeeded')
 async def confirm(request: Request,
                   confirmation: dict,
-                  session: AsyncSession=Depends(get_async_session)) -> BaseResponse:
+                  session: AsyncSession = Depends(get_async_session)) -> BaseResponse:
     ip = ipaddress.ip_address(request.client.host)
     if not any([ip in network for network in YOOKASSA_NETWORKS]):
         raise HTTPException(status_code=403, detail='this endpoint is only for yookassa')
@@ -167,30 +169,26 @@ async def confirm(request: Request,
             await session.delete(payment)
             return BaseResponse(message='status success')
 
+        free_product = (
+            await session.execute(select(ProductModel).where(ProductModel.title == 'free'))).scalars().first()
+        await session.execute(
+            delete(Purchase)
+            .where(Purchase.user_id == payment.user_id)
+        )
+        session.add(Purchase(
+            id=uuid.uuid4(),
+            user_id=payment.user_id,
+            product_id=free_product.id,
+            expiration_time=datetime.now() + timedelta(days=product.availability_duration_days)
+            if product.availability_duration_days is not None else None,
+            remaining_uses=None
+        ))
+
         categories = (await session.execute(
             select(PaymentCategory.category_id).where(PaymentCategory.payment_id == payment_id)
         )).scalars().all()
 
         purchase_id = uuid.uuid4()
-
-        session.add_all([PurchaseCategory(purchase_id=purchase_id,
-                                          category_id=category_id)
-                         for category_id in categories])
-        await session.delete(payment)
-        free_product = (await session.execute(select(ProductModel).where(ProductModel.title == 'free'))).scalars().first()
-        await session.execute(
-            delete(Purchase)
-            .where(and_(Purchase.user_id == payment.user_id,
-                        Purchase.product_id != free_product.id))
-            )
-        session.add(Purchase(
-                id=uuid.uuid4(),
-                user_id=payment.user_id,
-                product_id=free_product.id.id,
-                expiration_time=datetime.now() + timedelta(days=product.availability_duration_days)
-                if product.availability_duration_days is not None else None,
-                remaining_uses=None
-            ))
 
         session.add(Purchase(
             id=purchase_id,
@@ -201,17 +199,25 @@ async def confirm(request: Request,
             remaining_uses=product.usage_count
         ))
 
+        session.add_all([PurchaseCategory(purchase_id=purchase_id,
+                                          category_id=category_id)
+                         for category_id in categories])
+
+        await session.delete(payment)
+
     return BaseResponse(message='status success')
 
+
 @router.get('/products', dependencies=[Depends(get_access_token)])
-async def get_products(session: AsyncSession=Depends(get_async_session)) -> ProductsResponse:
+async def get_products(session: AsyncSession = Depends(get_async_session)) -> ProductsResponse:
     return await get_products_(session=session,
                                admin=False)
+
 
 @router.get('/promo', dependencies=[Depends(get_access_token)])
 async def check_promo(productId: uuid.UUID,
                       promoCode: str,
-                      session: AsyncSession=Depends(get_async_session)) -> NewPrice:
+                      session: AsyncSession = Depends(get_async_session)) -> NewPrice:
     if productId is not None:
         product_model = await session.get(ProductModel, productId)
 
@@ -224,10 +230,11 @@ async def check_promo(productId: uuid.UUID,
     return NewPrice(message='status succes',
                     newPrice=price)
 
+
 @router.post('/promo')
 async def apply_promo(promo: Promo,
-                      user_token: AccessTokenPayload=Depends(get_access_token),
-                      session: AsyncSession=Depends(get_async_session)) -> PromoProduct:
+                      user_token: AccessTokenPayload = Depends(get_access_token),
+                      session: AsyncSession = Depends(get_async_session)) -> PromoProduct:
     product = (await session.execute(
         select(ProductModel)
         .join(PromoCode)
